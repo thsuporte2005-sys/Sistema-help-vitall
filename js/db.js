@@ -63,7 +63,8 @@ function toDbRow(storeName, item) {
       observations: clean.observations || '',
       bottles: Number(clean.bottles) || 0,
       sent: Boolean(clean.sent),
-      delivered: Boolean(clean.delivered)
+      delivered: Boolean(clean.delivered),
+      payment_method: clean.paymentMethod || ''
     };
   }
 
@@ -144,7 +145,8 @@ function fromDbRow(storeName, row) {
       observations: row.observations || '',
       bottles: Number(row.bottles) || 0,
       sent: Boolean(row.sent),
-      delivered: Boolean(row.delivered)
+      delivered: Boolean(row.delivered),
+      paymentMethod: row.payment_method || ''
     };
   }
 
