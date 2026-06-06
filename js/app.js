@@ -92,6 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clientAttendant: document.getElementById('clientAttendant'),
     clientDate: document.getElementById('clientDate'),
     clientStatus: document.getElementById('clientStatus'),
+    clientObservations: document.getElementById('clientObservations'),
     btnCancelClientModal: document.getElementById('btnCancelClientModal'),
     btnCloseClientModal: document.getElementById('btnCloseClientModal'),
     clientModalTitle: document.getElementById('clientModalTitle'),
@@ -364,14 +365,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   elements.settingsForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const systemName = elements.settingsSystemName.value.trim();
+    let systemName = elements.settingsSystemName.value.trim();
     if (!systemName) {
-      showToast('Por favor, informe o nome do sistema.', 'error');
-      return;
+      systemName = 'Help Vitall';
     }
 
     state.settings.systemName = systemName;
     elements.sidebarSystemName.textContent = systemName;
+    elements.settingsSystemName.value = systemName;
     await window.db.setSetting('systemName', systemName);
 
     showToast('Configurações salvas com sucesso!');
@@ -1207,10 +1208,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.clientSaleValue.value = Number(client.saleValue).toFixed(2);
         elements.clientDate.value = client.date;
         elements.clientStatus.value = client.status;
+        elements.clientObservations.value = client.observations || '';
       }
     } else {
       state.editingClientId = null;
       elements.clientId.value = '';
+      elements.clientObservations.value = '';
       elements.clientModalTitle.textContent = 'Adicionar Cliente';
       elements.clientPlan.disabled = true;
       elements.clientPlan.innerHTML = '<option value="" disabled selected>Selecione um produto primeiro</option>';
@@ -1241,7 +1244,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       saleValue: Number(elements.clientSaleValue.value) || 0,
       attendant: elements.clientAttendant.value,
       date: elements.clientDate.value,
-      status: elements.clientStatus.value
+      status: elements.clientStatus.value,
+      observations: elements.clientObservations.value.trim()
     };
 
     if (!clientData.name || !clientData.phone || !clientData.country || !clientData.productId || !clientData.planName || !clientData.date) {
