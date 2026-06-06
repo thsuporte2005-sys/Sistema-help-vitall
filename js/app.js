@@ -164,6 +164,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     importDuplicateAction: document.getElementById('importDuplicateAction'),
     importPreviewTableBody: document.getElementById('importPreviewTableBody'),
     previewDuplicatesCount: document.getElementById('previewDuplicatesCount'),
+    importWarningsBox: document.getElementById('importWarningsBox'),
+    importWarningsList: document.getElementById('importWarningsList'),
     importRefMonth: document.getElementById('importRefMonth'),
     importRefYear: document.getElementById('importRefYear'),
     importDetectedMonthYear: document.getElementById('importDetectedMonthYear'),
@@ -1378,8 +1380,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     rows: [],
     mappedClients: [],
     duplicatesCount: 0,
-    rowErrors: []
+    rowErrors: [],
+    warnings: []
   };
+
+  const KNOWN_IMPORT_PLANS = [
+    { value: 217, name: '2 meses' },
+    { value: 247, name: '3 meses' },
+    { value: 267, name: '4 meses' },
+    { value: 397, name: '6 meses' }
+  ];
 
   const SYSTEM_MAPPING_FIELDS = [
     { key: 'name', label: 'Nome do Cliente *', required: true, auto: ['nome', 'cliente', 'nome completo', 'customer', 'name'] },
@@ -1646,6 +1656,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     return Number(parsed.toFixed(2));
   }
 
+  function identifyImportPlanByValue(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) return '';
+    const match = KNOWN_IMPORT_PLANS.find(plan => Math.abs(numericValue - plan.value) < 0.01);
+    return match ? match.name : '';
+  }
+
+  function formatImportWarningValue(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return String(value || '').trim();
+    return numericValue.toLocaleString('pt-BR', {
+      minimumFractionDigits: numericValue % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function addImportWarning(message, context = {}) {
+    if (!importState.warnings.includes(message)) {
+      importState.warnings.push(message);
+    }
+    console.warn('[Help Vitall][Import]', message, context);
+  }
+
+  function parseOptionalImportDate(rawValue, refMonth, refYear) {
+    if (rawValue === undefined || rawValue === null || String(rawValue).trim() === '') {
+      return { date: '', invalid: false };
+    }
+
+    const rawText = String(rawValue).trim();
+    const numericRaw = Number(rawText.replace(',', '.'));
+    const isExcelSerialDate = Number.isFinite(numericRaw) && numericRaw > 30000 && numericRaw < 60000;
+    const parts = rawText.match(/(\d{1,4})/g);
+    if (!isExcelSerialDate && (!parts || parts.length < 2)) {
+      return { date: '', invalid: true };
+    }
+
+    const parsed = parseSpreadsheetDate(rawValue, refMonth, refYear);
+    if (!parsed || !isValidISODate(parsed)) {
+      return { date: '', invalid: true };
+    }
+
+    return { date: parsed, invalid: false };
+  }
+
+  function renderImportWarnings() {
+    if (!elements.importWarningsBox || !elements.importWarningsList) return;
+
+    elements.importWarningsList.innerHTML = '';
+    if (importState.warnings.length === 0) {
+      elements.importWarningsBox.style.display = 'none';
+      return;
+    }
+
+    const visibleWarnings = importState.warnings.slice(0, 25);
+    visibleWarnings.forEach(warning => {
+      const li = document.createElement('li');
+      li.textContent = warning;
+      elements.importWarningsList.appendChild(li);
+    });
+
+    if (importState.warnings.length > visibleWarnings.length) {
+      const li = document.createElement('li');
+      li.textContent = `Mais ${importState.warnings.length - visibleWarnings.length} aviso(s) oculto(s).`;
+      elements.importWarningsList.appendChild(li);
+    }
+
+    elements.importWarningsBox.style.display = 'block';
+  }
+
   function getImportErrorMessage(err) {
     const rawMessage = String(err?.message || err || '');
     const rawCode = String(err?.code || '');
@@ -1737,6 +1816,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     importState.mappedClients = [];
     importState.duplicatesCount = 0;
     importState.rowErrors = [];
+    importState.warnings = [];
+    renderImportWarnings();
     
     elements.importFile.value = '';
     elements.importGSheetsUrl.value = '';
@@ -2050,6 +2131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     importState.mappedClients = [];
     importState.rowErrors = [];
+    importState.warnings = [];
 
     // Scan if there is at least one valid date in the spreadsheet
     let hasAnyValidDate = false;
@@ -2109,19 +2191,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       const rawPaymentDate = mappings.paymentDate ? row[mappings.paymentDate] : '';
       const rawDeliveryDate = mappings.deliveryDate ? row[mappings.deliveryDate] : '';
-      const paymentDate = parseSpreadsheetDate(rawPaymentDate, refMonth, refYear);
-      const deliveryDate = parseSpreadsheetDate(rawDeliveryDate, refMonth, refYear);
+      let paymentDate = parseSpreadsheetDate(rawPaymentDate, refMonth, refYear);
+      const deliveryDateResult = parseOptionalImportDate(rawDeliveryDate, refMonth, refYear);
+      const deliveryDate = deliveryDateResult.date;
       if (rawPaymentDate && (!paymentDate || !isValidISODate(paymentDate))) {
-        const message = `Erro ao importar: data do pagamento inválida na linha ${rowIndex + 2}.`;
-        importState.rowErrors.push(message);
-        console.error('[Help Vitall][Import]', message, { value: rawPaymentDate, row });
-        return;
+        paymentDate = '';
+        addImportWarning(`Linha ${rowIndex + 2}: data do pagamento inválida, será ignorada`, {
+          value: rawPaymentDate,
+          row
+        });
       }
-      if (rawDeliveryDate && (!deliveryDate || !isValidISODate(deliveryDate))) {
-        const message = `Erro ao importar: data de entrega inválida na linha ${rowIndex + 2}.`;
-        importState.rowErrors.push(message);
-        console.error('[Help Vitall][Import]', message, { value: rawDeliveryDate, row });
-        return;
+      if (deliveryDateResult.invalid) {
+        addImportWarning(`Linha ${rowIndex + 2}: data de entrega inválida, será ignorada`, {
+          value: rawDeliveryDate,
+          row
+        });
       }
       const paymentMethod = mappings.paymentMethod ? row[mappings.paymentMethod] : '';
       
@@ -2172,16 +2256,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!maxDate || date > maxDate) maxDate = date;
       }
 
-      if (status === 'Pago') {
-        countPaid++;
-        totalRevenue += parsedValue;
-      } else if (status === 'Golpe') {
-        countLoss++;
-        totalLossVal += parsedValue;
-      } else {
-        countPending++;
-      }
-
       let finalCountry = String(country).trim();
       if (!finalCountry) {
         finalCountry = 'Estados Unidos';
@@ -2201,29 +2275,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      // Auto-detect plan name based on parsed sale value
       let finalPlanName = '';
-      const roundedVal = Math.round(parsedValue);
-      if (roundedVal === 217) {
-        finalPlanName = '2 meses';
-        plan2Count++;
-      } else if (roundedVal === 247) {
-        finalPlanName = '3 meses';
-        plan3Count++;
-      } else if (roundedVal === 267) {
-        finalPlanName = '4 meses';
-        plan4Count++;
-      } else if (roundedVal === 397) {
-        finalPlanName = '6 meses';
-        plan6Count++;
+      const knownPlanName = identifyImportPlanByValue(parsedValue);
+      const hasSaleValue = Number(parsedValue) > 0;
+
+      if (knownPlanName) {
+        finalPlanName = knownPlanName;
+        if (knownPlanName === '2 meses') plan2Count++;
+        if (knownPlanName === '3 meses') plan3Count++;
+        if (knownPlanName === '4 meses') plan4Count++;
+        if (knownPlanName === '6 meses') plan6Count++;
+      } else if (hasSaleValue) {
+        finalPlanName = 'Não identificado';
+        status = 'Pagamento pendente';
+        addImportWarning(`Linha ${rowIndex + 2}: plano não identificado pelo valor ${formatImportWarningValue(parsedValue)}`, {
+          value: parsedValue,
+          row
+        });
       } else {
-        // Fallback to sheet column plan name, then standard default plan name selected, or 'Não identificado'
         finalPlanName = String(mappedPlanName || defaultPlanName || '').trim() || 'Não identificado';
+      }
+
+      if (finalPlanName === 'Não identificado') {
         planUnknownCount++;
       }
 
       const finalPaymentDate = status === 'Pago' ? (paymentDate || date) : (paymentDate || '');
       const financialDate = status === 'Pago' ? finalPaymentDate : date;
+
+      if (status === 'Pago') {
+        countPaid++;
+        totalRevenue += parsedValue;
+      } else if (status === 'Golpe') {
+        countLoss++;
+        totalLossVal += parsedValue;
+      } else {
+        countPending++;
+      }
 
       const clientData = {
         name: String(name).trim(),
@@ -2280,6 +2368,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (importState.rowErrors.length > 0) {
       showToast(importState.rowErrors[0], 'error');
     }
+
+    renderImportWarnings();
 
     // Render Preview UI
     const badge = elements.previewDuplicatesCount;
@@ -2470,7 +2560,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalRevenue,
         totalLoss,
         summary: {
-          duplicateAction: action
+          duplicateAction: action,
+          warnings: importState.warnings
         }
       });
     } catch (err) {
