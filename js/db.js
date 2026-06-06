@@ -59,11 +59,13 @@ function toDbRow(storeName, item) {
       status: clean.status || 'Pagamento pendente',
       tracking_code: clean.trackingCode || '',
       payment_date: clean.paymentDate || '',
+      financial_date: clean.financialDate || (clean.status === 'Pago' ? (clean.paymentDate || clean.date) : clean.date) || null,
       delivery_date: clean.deliveryDate || '',
       observations: clean.observations || '',
       bottles: Number(clean.bottles) || 0,
       sent: Boolean(clean.sent),
       delivered: Boolean(clean.delivered),
+      paid: clean.paid !== undefined ? Boolean(clean.paid) : clean.status === 'Pago',
       payment_method: clean.paymentMethod || ''
     };
   }
@@ -141,11 +143,13 @@ function fromDbRow(storeName, row) {
       status: row.status || 'Pagamento pendente',
       trackingCode: row.tracking_code || '',
       paymentDate: row.payment_date || '',
+      financialDate: row.financial_date || row.payment_date || row.date || '',
       deliveryDate: row.delivery_date || '',
       observations: row.observations || '',
       bottles: Number(row.bottles) || 0,
       sent: Boolean(row.sent),
       delivered: Boolean(row.delivered),
+      paid: Boolean(row.paid),
       paymentMethod: row.payment_method || ''
     };
   }

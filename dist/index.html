@@ -48,7 +48,7 @@
   <aside class="sidebar auth-hidden" id="sidebar">
     <div class="sidebar-logo">
       <img src="Pngss/logohel.png" alt="Logo" onerror="this.onerror=null; this.src='Pngss/logohelp.png'; this.addEventListener('error', function(){this.style.display='none';})">
-      <span id="sidebarSystemName">Help Vitall</span>
+      <span id="sidebarSystemName" style="display: none;">Help Vitall</span>
     </div>
     <ul class="sidebar-menu">
       <li class="sidebar-item active" data-view="dashboard">
@@ -461,7 +461,7 @@
           <form id="settingsForm">
             <div class="form-group">
               <label class="form-label" for="settingsSystemName">Nome do CRM / Sistema</label>
-              <input type="text" class="form-input" id="settingsSystemName" value="Help Vitall" required>
+              <input type="text" class="form-input" id="settingsSystemName" value="Help Vitall">
               <span class="form-helper">Nome que será exibido no cabeçalho e na barra lateral.</span>
             </div>
 
@@ -607,24 +607,24 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="clientZip">Código Postal *</label>
-              <input type="text" class="form-input" id="clientZip" required placeholder="Ex: 01001-000">
+              <label class="form-label" for="clientZip">Código Postal</label>
+              <input type="text" class="form-input" id="clientZip" placeholder="Ex: 01001-000">
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="clientAddress">Endereço Completo *</label>
-            <input type="text" class="form-input" id="clientAddress" required placeholder="Rua, Número, Bairro, Complemento">
+            <label class="form-label" for="clientAddress">Endereço Completo</label>
+            <input type="text" class="form-input" id="clientAddress" placeholder="Rua, Número, Bairro, Complemento">
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="clientCity">Cidade *</label>
-              <input type="text" class="form-input" id="clientCity" required placeholder="Ex: São Paulo">
+              <label class="form-label" for="clientCity">Cidade</label>
+              <input type="text" class="form-input" id="clientCity" placeholder="Ex: São Paulo">
             </div>
             <div class="form-group">
-              <label class="form-label" for="clientState">Estado *</label>
-              <input type="text" class="form-input" id="clientState" required placeholder="Ex: SP">
+              <label class="form-label" for="clientState">Estado</label>
+              <input type="text" class="form-input" id="clientState" placeholder="Ex: SP">
             </div>
           </div>
 
@@ -670,6 +670,52 @@
                 <option value="Golpe">Golpe</option>
               </select>
             </div>
+          </div>
+
+          <!-- Detalhes de Envio e Rastreamento -->
+          <div class="form-row" style="border-top: 1px solid var(--border-color); padding-top: 18px; margin-top: 10px;">
+            <div class="form-group">
+              <label class="form-label" for="clientTrackingCode">Código de Rastreio</label>
+              <input type="text" class="form-input" id="clientTrackingCode" placeholder="Ex: BR123456789BR">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientDeliveryDate">Data de Entrega</label>
+              <input type="date" class="form-input" id="clientDeliveryDate">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="clientSent">Enviado</label>
+              <select class="form-select" id="clientSent">
+                <option value="false">Não</option>
+                <option value="true">Sim</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientDelivered">Entregue</label>
+              <select class="form-select" id="clientDelivered">
+                <option value="false">Não</option>
+                <option value="true">Sim</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Detalhes de Pagamento -->
+          <div class="form-row" style="border-top: 1px solid var(--border-color); padding-top: 18px; margin-top: 10px;">
+            <div class="form-group">
+              <label class="form-label" for="clientPaymentDate">Data do Pagamento</label>
+              <input type="date" class="form-input" id="clientPaymentDate">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientPaymentMethod">Forma de Pagamento</label>
+              <input type="text" class="form-input" id="clientPaymentMethod" placeholder="Ex: Pix, Cartão de Crédito">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 12px;">
+            <label class="form-label" for="clientObservations">Observações</label>
+            <textarea class="form-input" id="clientObservations" rows="2" placeholder="Observações e anotações adicionais..." style="resize:vertical;"></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -778,21 +824,21 @@
         </div>
 
         <div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-          <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Definições Padrão de Importação</h4>
+          <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Definições Opcionais de Importação</h4>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="importDefaultProduct">Produto Padrão *</label>
-              <select class="form-select" id="importDefaultProduct" required>
+              <label class="form-label" for="importDefaultProduct">Produto Padrão</label>
+              <select class="form-select" id="importDefaultProduct">
                 <!-- Dynamically populated products list -->
               </select>
-              <span class="form-helper">Selecione o produto a ser associado aos clientes se a planilha não contiver a coluna correspondente.</span>
+              <span class="form-helper">Opcional. Se não selecionar, o cliente será importado sem produto vinculado.</span>
             </div>
             <div class="form-group">
-              <label class="form-label" for="importDefaultPlan">Plano Padrão *</label>
-              <select class="form-select" id="importDefaultPlan" required disabled>
+              <label class="form-label" for="importDefaultPlan">Plano Padrão</label>
+              <select class="form-select" id="importDefaultPlan" disabled>
                 <option value="" disabled selected>Selecione um produto primeiro</option>
               </select>
-              <span class="form-helper">Selecione o plano de vendas padrão.</span>
+              <span class="form-helper">Opcional. Use apenas se quiser preencher plano quando a planilha não trouxer essa informação.</span>
             </div>
           </div>
         </div>
@@ -826,6 +872,67 @@
 
       <!-- Stage 3: Import Preview -->
       <div class="modal-body import-stage" id="importStage3" style="display:none; padding: 20px;">
+        <!-- Painel de Resumo da Importação e Ajuste de Mês/Ano -->
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-lg); margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px;">
+          <!-- Coluna 1: Ajuste de Mês/Ano -->
+          <div style="border-right: 1px solid var(--border-color); padding-right: 16px;">
+            <h5 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; margin-top:0;">Mês/Ano de Referência</h5>
+            <p style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.3;">Detectado automaticamente ou selecionado abaixo. Será usado para preencher datas sem ano (ex: 12/05).</p>
+            <div style="display: flex; gap: 8px;">
+              <select class="form-select" id="importRefMonth" style="font-size: 0.75rem; padding: 4px 8px; height: 30px;">
+                <option value="0">Janeiro</option>
+                <option value="1">Fevereiro</option>
+                <option value="2">Março</option>
+                <option value="3">Abril</option>
+                <option value="4">Maio</option>
+                <option value="5">Junho</option>
+                <option value="6">Julho</option>
+                <option value="7">Agosto</option>
+                <option value="8">Setembro</option>
+                <option value="9">Outubro</option>
+                <option value="10">Novembro</option>
+                <option value="11">Dezembro</option>
+              </select>
+              <select class="form-select" id="importRefYear" style="font-size: 0.75rem; padding: 4px 8px; height: 30px;">
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026" selected>2026</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+              </select>
+            </div>
+            <div style="margin-top: 8px; font-size: 0.72rem; color: var(--text-secondary); font-weight: 600;">
+              Mês detectado: <span id="importDetectedMonthYear" style="color: var(--color-green-600);">Não identificado</span>
+            </div>
+          </div>
+          
+          <!-- Coluna 2: Estatísticas Encontradas -->
+          <div>
+            <h5 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; margin-top:0;">Estatísticas da Planilha</h5>
+            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 8px; font-size: 0.75rem; line-height:1.4;">
+              <div>
+                <div><strong>Clientes Pagos:</strong> <span id="importSummaryPaid">0</span></div>
+                <div><strong>Clientes Pendentes:</strong> <span id="importSummaryPending">0</span></div>
+                <div><strong>Golpes/Prejuízos:</strong> <span id="importSummaryLoss">0</span></div>
+              </div>
+              <div>
+                <div><strong>Faturamento Total:</strong> <span id="importSummaryRevenue" style="color: var(--color-green-600); font-weight: 600;">R$ 0,00</span></div>
+                <div><strong>Prejuízo Total:</strong> <span id="importSummaryLossVal" style="color: var(--color-red-600); font-weight: 600;">R$ 0,00</span></div>
+                <div><strong>Datas detectadas:</strong> <span id="importSummaryDatesRange">-</span></div>
+              </div>
+            </div>
+
+            <!-- Resumo de Planos Identificados -->
+            <div style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 8px; font-size: 0.7rem; color: var(--text-secondary); display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+              <div><strong>Plano 2m:</strong> <span id="importSummaryPlan2">0</span></div>
+              <div><strong>Plano 3m:</strong> <span id="importSummaryPlan3">0</span></div>
+              <div><strong>Plano 4m:</strong> <span id="importSummaryPlan4">0</span></div>
+              <div><strong>Plano 6m:</strong> <span id="importSummaryPlan6">0</span></div>
+              <div style="grid-column: span 2;"><strong>Não identificado:</strong> <span id="importSummaryPlanUnknown">0</span></div>
+            </div>
+          </div>
+        </div>
+
         <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
           <p style="font-size: 0.85rem; color: var(--text-secondary);">
             Confira a prévia de dados dos clientes a serem importados. Se tudo estiver correto, clique em confirmar.
@@ -837,14 +944,13 @@
           <table class="data-table" style="font-size: 0.8rem;">
             <thead>
               <tr>
-                <th>Nome</th>
+                <th>Nome do Cliente</th>
                 <th>Valor</th>
-                <th>Produto</th>
-                <th>Atendente</th>
-                <th>Pagamento</th>
-                <th>Entrega</th>
-                <th>Rastreio</th>
-                <th>Data Pgto</th>
+                <th>Plano</th>
+                <th>Vendedor</th>
+                <th>Status Pgto</th>
+                <th>Data Cadastro</th>
+                <th>Data Pagamento</th>
               </tr>
             </thead>
             <tbody id="importPreviewTableBody">
@@ -861,7 +967,7 @@
         </div>
         
         <h3 style="font-family: var(--font-title); font-size: 1.4rem; font-weight: 700; margin-bottom: 8px;">Importação Concluída!</h3>
-        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 30px;">Os dados foram processados com sucesso no banco de dados local.</p>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 30px;">Os dados foram processados com sucesso no banco de dados.</p>
         
         <!-- Summary Stats Grid -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px;">

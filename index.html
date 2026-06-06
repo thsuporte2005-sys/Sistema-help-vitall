@@ -824,21 +824,21 @@
         </div>
 
         <div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-          <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Definições Padrão de Importação</h4>
+          <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Definições Opcionais de Importação</h4>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="importDefaultProduct">Produto Padrão *</label>
-              <select class="form-select" id="importDefaultProduct" required>
+              <label class="form-label" for="importDefaultProduct">Produto Padrão</label>
+              <select class="form-select" id="importDefaultProduct">
                 <!-- Dynamically populated products list -->
               </select>
-              <span class="form-helper">Selecione o produto a ser associado aos clientes se a planilha não contiver a coluna correspondente.</span>
+              <span class="form-helper">Opcional. Se não selecionar, o cliente será importado sem produto vinculado.</span>
             </div>
             <div class="form-group">
-              <label class="form-label" for="importDefaultPlan">Plano Padrão *</label>
-              <select class="form-select" id="importDefaultPlan" required disabled>
+              <label class="form-label" for="importDefaultPlan">Plano Padrão</label>
+              <select class="form-select" id="importDefaultPlan" disabled>
                 <option value="" disabled selected>Selecione um produto primeiro</option>
               </select>
-              <span class="form-helper">Selecione o plano de vendas padrão.</span>
+              <span class="form-helper">Opcional. Use apenas se quiser preencher plano quando a planilha não trouxer essa informação.</span>
             </div>
           </div>
         </div>
@@ -921,6 +921,15 @@
                 <div><strong>Datas detectadas:</strong> <span id="importSummaryDatesRange">-</span></div>
               </div>
             </div>
+
+            <!-- Resumo de Planos Identificados -->
+            <div style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 8px; font-size: 0.7rem; color: var(--text-secondary); display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+              <div><strong>Plano 2m:</strong> <span id="importSummaryPlan2">0</span></div>
+              <div><strong>Plano 3m:</strong> <span id="importSummaryPlan3">0</span></div>
+              <div><strong>Plano 4m:</strong> <span id="importSummaryPlan4">0</span></div>
+              <div><strong>Plano 6m:</strong> <span id="importSummaryPlan6">0</span></div>
+              <div style="grid-column: span 2;"><strong>Não identificado:</strong> <span id="importSummaryPlanUnknown">0</span></div>
+            </div>
           </div>
         </div>
 
@@ -935,14 +944,13 @@
           <table class="data-table" style="font-size: 0.8rem;">
             <thead>
               <tr>
-                <th>Nome</th>
+                <th>Nome do Cliente</th>
                 <th>Valor</th>
-                <th>Produto</th>
-                <th>Atendente</th>
-                <th>Pagamento</th>
-                <th>Entrega</th>
-                <th>Rastreio</th>
-                <th>Data Pgto</th>
+                <th>Plano</th>
+                <th>Vendedor</th>
+                <th>Status Pgto</th>
+                <th>Data Cadastro</th>
+                <th>Data Pagamento</th>
               </tr>
             </thead>
             <tbody id="importPreviewTableBody">
@@ -959,7 +967,7 @@
         </div>
         
         <h3 style="font-family: var(--font-title); font-size: 1.4rem; font-weight: 700; margin-bottom: 8px;">Importação Concluída!</h3>
-        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 30px;">Os dados foram processados com sucesso no banco de dados local.</p>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 30px;">Os dados foram processados com sucesso no banco de dados.</p>
         
         <!-- Summary Stats Grid -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px;">

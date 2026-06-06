@@ -92,6 +92,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     clientAttendant: document.getElementById('clientAttendant'),
     clientDate: document.getElementById('clientDate'),
     clientStatus: document.getElementById('clientStatus'),
+    clientObservations: document.getElementById('clientObservations'),
+    clientTrackingCode: document.getElementById('clientTrackingCode'),
+    clientDeliveryDate: document.getElementById('clientDeliveryDate'),
+    clientSent: document.getElementById('clientSent'),
+    clientDelivered: document.getElementById('clientDelivered'),
+    clientPaymentDate: document.getElementById('clientPaymentDate'),
+    clientPaymentMethod: document.getElementById('clientPaymentMethod'),
     btnCancelClientModal: document.getElementById('btnCancelClientModal'),
     btnCloseClientModal: document.getElementById('btnCloseClientModal'),
     clientModalTitle: document.getElementById('clientModalTitle'),
@@ -157,6 +164,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     importDuplicateAction: document.getElementById('importDuplicateAction'),
     importPreviewTableBody: document.getElementById('importPreviewTableBody'),
     previewDuplicatesCount: document.getElementById('previewDuplicatesCount'),
+    importRefMonth: document.getElementById('importRefMonth'),
+    importRefYear: document.getElementById('importRefYear'),
+    importDetectedMonthYear: document.getElementById('importDetectedMonthYear'),
+    importSummaryPaid: document.getElementById('importSummaryPaid'),
+    importSummaryPending: document.getElementById('importSummaryPending'),
+    importSummaryLoss: document.getElementById('importSummaryLoss'),
+    importSummaryRevenue: document.getElementById('importSummaryRevenue'),
+    importSummaryLossVal: document.getElementById('importSummaryLossVal'),
+    importSummaryDatesRange: document.getElementById('importSummaryDatesRange'),
+    importSummaryPlan2: document.getElementById('importSummaryPlan2'),
+    importSummaryPlan3: document.getElementById('importSummaryPlan3'),
+    importSummaryPlan4: document.getElementById('importSummaryPlan4'),
+    importSummaryPlan6: document.getElementById('importSummaryPlan6'),
+    importSummaryPlanUnknown: document.getElementById('importSummaryPlanUnknown'),
     sumTotalImported: document.getElementById('sumTotalImported'),
     sumPaid: document.getElementById('sumPaid'),
     sumPending: document.getElementById('sumPending'),
@@ -213,8 +234,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Helper: Parse Date locally to avoid TZ shifting
   function parseLocalDate(dateString) {
+    if (!dateString) return new Date();
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
+  }
+
+  // Helper: Get effective date for client based on their status
+  function getClientEffectiveDate(client) {
+    if (!client) return '';
+    if (client.status === 'Pago') {
+      return client.paymentDate || client.date;
+    }
+    if (client.status === 'Golpe') {
+      return client.deliveryDate || client.date;
+    }
+    return client.date;
   }
 
   // Helper: Format date string to display (DD/MM/YYYY)
@@ -364,14 +398,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   elements.settingsForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const systemName = elements.settingsSystemName.value.trim();
+    let systemName = elements.settingsSystemName.value.trim();
     if (!systemName) {
-      showToast('Por favor, informe o nome do sistema.', 'error');
-      return;
+      systemName = 'Help Vitall';
     }
 
     state.settings.systemName = systemName;
     elements.sidebarSystemName.textContent = systemName;
+    elements.settingsSystemName.value = systemName;
     await window.db.setSetting('systemName', systemName);
 
     showToast('Configurações salvas com sucesso!');
@@ -578,7 +612,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 3. Filter Datasets
     // Filter clients based on Date range and Product filter
     const filteredClients = state.clients.filter(client => {
-      const regDate = parseLocalDate(client.date);
+      const regDate = parseLocalDate(getClientEffectiveDate(client));
       const inDateRange = regDate >= start && regDate <= end;
       const matchesProduct = productFilterVal === 'all' || String(client.productId) === productFilterVal;
       return inDateRange && matchesProduct;
@@ -665,8 +699,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dailyData = dateList.map(date => {
       const dateStr = getISODateString(date);
 
-      // Clients registered on this day
-      const dayClients = filteredClients.filter(c => c.date === dateStr);
+      // Clients registered/paid on this day
+      const dayClients = filteredClients.filter(c => getClientEffectiveDate(c) === dateStr);
       let dayFaturamento = 0;
       let dayPrejuizo = 0;
       dayClients.forEach(c => {
@@ -849,7 +883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const productReports = state.products.map(prod => {
       // Filter clients in date range for this product
       const prodClients = state.clients.filter(c => {
-        const regDate = parseLocalDate(c.date);
+        const regDate = parseLocalDate(getClientEffectiveDate(c));
         return String(c.productId) === String(prod.id) && regDate >= start && regDate <= end;
       });
 
@@ -954,7 +988,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.products.forEach(prod => {
       // Filter clients & expenses for this product in range
       const prodClients = state.clients.filter(c => {
-        const regDate = parseLocalDate(c.date);
+        const regDate = parseLocalDate(getClientEffectiveDate(c));
         return String(c.productId) === String(prod.id) && regDate >= start && regDate <= end;
       });
 
@@ -1174,6 +1208,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Highlight all text when focusing clientSaleValue field to prevent concatenation
+  elements.clientSaleValue.addEventListener('focus', (e) => {
+    e.target.select();
+  });
+
+  // Format the number to 2 decimal places on blur, or clear if invalid
+  elements.clientSaleValue.addEventListener('blur', (e) => {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val)) {
+      e.target.value = val.toFixed(2);
+    } else {
+      e.target.value = '';
+    }
+  });
+
   // Client CRUD Actions
   elements.btnOpenAddClientModal.addEventListener('click', () => openClientModal());
   elements.btnCancelClientModal.addEventListener('click', closeClientModal);
@@ -1207,10 +1256,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.clientSaleValue.value = Number(client.saleValue).toFixed(2);
         elements.clientDate.value = client.date;
         elements.clientStatus.value = client.status;
+        elements.clientObservations.value = client.observations || '';
+        elements.clientTrackingCode.value = client.trackingCode || '';
+        elements.clientDeliveryDate.value = client.deliveryDate || '';
+        elements.clientSent.value = String(Boolean(client.sent));
+        elements.clientDelivered.value = String(Boolean(client.delivered));
+        elements.clientPaymentDate.value = client.paymentDate || '';
+        elements.clientPaymentMethod.value = client.paymentMethod || '';
       }
     } else {
       state.editingClientId = null;
       elements.clientId.value = '';
+      elements.clientName.value = '';
+      elements.clientPhone.value = '';
+      elements.clientCountry.value = '';
+      elements.clientZip.value = '';
+      elements.clientAddress.value = '';
+      elements.clientCity.value = '';
+      elements.clientState.value = '';
+      elements.clientProduct.value = '';
+      elements.clientSaleValue.value = '';
+      elements.clientObservations.value = '';
+      elements.clientTrackingCode.value = '';
+      elements.clientDeliveryDate.value = '';
+      elements.clientSent.value = 'false';
+      elements.clientDelivered.value = 'false';
+      elements.clientPaymentDate.value = '';
+      elements.clientPaymentMethod.value = '';
       elements.clientModalTitle.textContent = 'Adicionar Cliente';
       elements.clientPlan.disabled = true;
       elements.clientPlan.innerHTML = '<option value="" disabled selected>Selecione um produto primeiro</option>';
@@ -1241,7 +1313,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       saleValue: Number(elements.clientSaleValue.value) || 0,
       attendant: elements.clientAttendant.value,
       date: elements.clientDate.value,
-      status: elements.clientStatus.value
+      status: elements.clientStatus.value,
+      observations: elements.clientObservations.value.trim(),
+      trackingCode: elements.clientTrackingCode.value.trim(),
+      deliveryDate: elements.clientDeliveryDate.value,
+      sent: elements.clientSent.value === 'true',
+      delivered: elements.clientDelivered.value === 'true',
+      paymentDate: elements.clientPaymentDate.value,
+      paymentMethod: elements.clientPaymentMethod.value.trim()
     };
 
     if (!clientData.name || !clientData.phone || !clientData.country || !clientData.productId || !clientData.planName || !clientData.date) {
@@ -1251,15 +1330,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       if (state.editingClientId) {
-        clientData.id = state.editingClientId;
-        await window.db.put('clients', clientData);
+        const originalClient = state.clients.find(c => Number(c.id) === Number(state.editingClientId));
+        const updatedClient = {
+          ...originalClient,
+          ...clientData,
+          id: state.editingClientId
+        };
+        await window.db.put('clients', updatedClient);
         showToast('Cliente editado com sucesso!');
       } else {
         await window.db.add('clients', clientData);
         showToast('Cliente cadastrado com sucesso!');
       }
       closeClientModal();
-      loadViewData('clients');
+      await loadViewData('clients');
+      if (typeof updateDashboard === 'function') {
+        updateDashboard();
+      }
     } catch (err) {
       showToast('Erro ao salvar cliente no banco.', 'error');
       console.error(err);
@@ -1267,11 +1354,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   async function deleteClient(id) {
-    if (confirm('Tem certeza de que deseja excluir este cliente?')) {
+    if (confirm('Tem certeza que deseja apagar este cliente? Essa ação não poderá ser desfeita.')) {
       try {
         await window.db.delete('clients', id);
         showToast('Cliente removido.');
-        loadViewData('clients');
+        await loadViewData('clients');
+        if (typeof updateDashboard === 'function') {
+          updateDashboard();
+        }
       } catch (err) {
         showToast('Erro ao excluir cliente.', 'error');
       }
@@ -1287,19 +1377,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     headers: [],
     rows: [],
     mappedClients: [],
-    duplicatesCount: 0
+    duplicatesCount: 0,
+    rowErrors: []
   };
 
   const SYSTEM_MAPPING_FIELDS = [
     { key: 'name', label: 'Nome do Cliente *', required: true, auto: ['nome', 'cliente', 'nome completo', 'customer', 'name'] },
     { key: 'phone', label: 'Telefone', required: false, auto: ['telefone', 'tel', 'celular', 'phone', 'whatsapp', 'contato'] },
-    { key: 'date', label: 'Data do Cadastro', required: false, auto: ['data', 'data do cadastro', 'data cadastro', 'created', 'date'] },
+    { key: 'date', label: 'Data', required: true, auto: ['data', 'data do cadastro', 'data cadastro', 'data venda', 'data da venda', 'created', 'date'] },
     { key: 'attendant', label: 'Atendente responsável', required: false, auto: ['vendedor', 'atendente', 'responsavel', 'user', 'attendant', 'seller'] },
     { key: 'saleValue', label: 'Valor da venda', required: false, auto: ['valor', 'valor da venda', 'preco', 'price', 'value', 'total', 'faturamento'] },
+    { key: 'productName', label: 'Produto', required: false, auto: ['produto', 'product', 'item'] },
+    { key: 'planName', label: 'Plano', required: false, auto: ['plano', 'plan', 'oferta', 'offer'] },
     { key: 'bottles', label: 'Frascos', required: false, auto: ['frascos', 'frasco', 'quantidade', 'qtd', 'bottles', 'quantity'] },
     { key: 'sent', label: 'Enviado', required: false, auto: ['enviado', 'envio', 'sent', 'shipped'] },
     { key: 'paidStatus', label: 'Status de pagamento (Pago)', required: false, auto: ['pago', 'status de pagamento', 'status pagto', 'paid', 'payment'] },
-    { key: 'paymentDate', label: 'Data do pagamento', required: false, auto: ['data do pagamento', 'data pagto', 'data pagamento', 'payment date', 'paid date'] },
+    { key: 'paymentDate', label: 'Data do pagamento', required: false, auto: ['data do pg', 'data pg', 'data do pagamento', 'data pagto', 'data pagamento', 'payment date', 'paid date'] },
+    { key: 'paymentMethod', label: 'Forma de pagamento', required: false, auto: ['forma de pagamento', 'metodo de pagamento', 'método de pagamento', 'payment method', 'forma pg', 'forma pgto'] },
     { key: 'deliveryDate', label: 'Data de entrega / Golpe', required: false, auto: ['data de entrega', 'data entrega', 'delivery date', 'delivery'] },
     { key: 'delivered', label: 'Entregue', required: false, auto: ['entregue', 'recebido', 'delivered', 'received'] },
     { key: 'trackingCode', label: 'Código de rastreio', required: false, auto: ['codigo de rastreio', 'rastreio', 'tracking', 'tracking code', 'rastrear'] },
@@ -1344,39 +1438,294 @@ document.addEventListener('DOMContentLoaded', async () => {
     return '';
   }
 
-  function parseDateString(val) {
-    if (!val) return getISODateString(new Date());
+  function detectMonthYearFromFilename(fileName) {
+    if (!fileName) return null;
+    const lower = fileName.toLowerCase();
     
-    // Check if it's an Excel serial date number
-    if (!isNaN(val) && parseFloat(val) > 30000 && parseFloat(val) < 60000) {
-      const date = new Date((parseFloat(val) - 25569) * 86400 * 1000);
-      return getISODateString(date);
+    // Check patterns like XX_MM or XX-MM
+    // E.g. 01_05 or 31_01 or 01-12
+    const matches = lower.match(/(\d{2})[_|-](\d{2})/);
+    if (matches) {
+      const monthNum = parseInt(matches[2], 10);
+      if (monthNum >= 1 && monthNum <= 12) {
+        let year = new Date().getFullYear();
+        const yearMatch = lower.match(/(202\d|201\d)/);
+        if (yearMatch) {
+          year = parseInt(yearMatch[1], 10);
+        }
+        return { month: monthNum - 1, year };
+      }
     }
     
+    const months = [
+      { index: 0, names: ['janeiro', 'jan', '_01', '-01', '01_01'] },
+      { index: 1, names: ['fevereiro', 'fev', '_02', '-02'] },
+      { index: 2, names: ['marco', 'março', 'mar', '_03', '-03'] },
+      { index: 3, names: ['abril', 'abr', '_04', '-04'] },
+      { index: 4, names: ['maio', 'mai', '_05', '-05'] },
+      { index: 5, names: ['junho', 'jun', '_06', '-06'] },
+      { index: 6, names: ['julho', 'jul', '_07', '-07'] },
+      { index: 7, names: ['agosto', 'ago', '_08', '-08'] },
+      { index: 8, names: ['setembro', 'set', '_09', '-09'] },
+      { index: 9, names: ['outubro', 'out', '_10', '-10'] },
+      { index: 10, names: ['novembro', 'nov', '_11', '-11'] },
+      { index: 11, names: ['dezembro', 'dez', '_12', '-12'] }
+    ];
+
+    for (const m of months) {
+      for (const name of m.names) {
+        if (lower.includes(name)) {
+          let year = new Date().getFullYear();
+          const yearMatch = lower.match(/(202\d|201\d)/);
+          if (yearMatch) {
+            year = parseInt(yearMatch[1], 10);
+          }
+          return { month: m.index, year };
+        }
+      }
+    }
+    return null;
+  }
+
+  function parseSpreadsheetDate(val, refMonth, refYear) {
+    if (val === undefined || val === null) return '';
     const valStr = String(val).trim();
-    // Standard formats like DD/MM/YYYY or YYYY-MM-DD
-    const parts = valStr.match(/(\d{1,4})/g);
-    if (parts && parts.length >= 3) {
-      if (parts[0].length === 4) {
-        const y = parts[0];
-        const m = parts[1].padStart(2, '0');
-        const d = parts[2].padStart(2, '0');
-        return `${y}-${m}-${d}`;
+    if (!valStr) return '';
+
+    // Check if it's an Excel serial date number
+    if (!isNaN(valStr) && parseFloat(valStr) > 30000 && parseFloat(valStr) < 60000) {
+      const date = new Date((parseFloat(valStr) - 25569) * 86400 * 1000);
+      let y = date.getFullYear();
+      let m = String(date.getMonth() + 1).padStart(2, '0');
+      let d = String(date.getDate()).padStart(2, '0');
+      
+      if (y < 2010 || y > 2035) {
+        y = refYear;
       }
-      if (parts[2].length === 4) {
-        const d = parts[0].padStart(2, '0');
-        const m = parts[1].padStart(2, '0');
-        const y = parts[2];
+      return `${y}-${m}-${d}`;
+    }
+
+    // Try parsing as ISO format YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(valStr)) {
+      let y = valStr.substring(0, 4);
+      let m = valStr.substring(5, 7);
+      let d = valStr.substring(8, 10);
+      const yearNum = parseInt(y, 10);
+      if (yearNum < 2010 || yearNum > 2035) {
+        y = refYear;
+      }
+      return `${y}-${m}-${d}`;
+    }
+
+    const parts = valStr.match(/(\d{1,4})/g);
+    if (parts) {
+      if (parts.length >= 3) {
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD
+          let y = parts[0];
+          let m = parts[1].padStart(2, '0');
+          let d = parts[2].padStart(2, '0');
+          const yearNum = parseInt(y, 10);
+          if (yearNum < 2010 || yearNum > 2035) {
+            y = refYear;
+          }
+          return `${y}-${m}-${d}`;
+        } else {
+          // DD/MM/YYYY
+          let d = parts[0].padStart(2, '0');
+          let m = parts[1].padStart(2, '0');
+          let y = parts[2];
+          if (y.length === 2) {
+            y = '20' + y;
+          }
+          const yearNum = parseInt(y, 10);
+          if (isNaN(yearNum) || yearNum < 2010 || yearNum > 2035) {
+            y = refYear;
+          }
+          return `${y}-${m}-${d}`;
+        }
+      } else if (parts.length === 2) {
+        // DD/MM
+        let d = parts[0].padStart(2, '0');
+        let m = parts[1].padStart(2, '0');
+        let y = refYear;
+        return `${y}-${m}-${d}`;
+      } else if (parts.length === 1) {
+        // Day only
+        let d = parts[0].padStart(2, '0');
+        let m = String(refMonth + 1).padStart(2, '0');
+        let y = refYear;
         return `${y}-${m}-${d}`;
       }
     }
-    
-    return getISODateString(new Date());
+
+    return '';
   }
 
   function parseBooleanFlag(val) {
     const normalized = String(val || '').toLowerCase().trim();
     return ['true', '1', 'sim', 'yes', 'check', 'ok', 's', 'y', 'v', 'enviado', 'entregue'].includes(normalized);
+  }
+
+  function normalizeImportText(val) {
+    return String(val || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  function parsePaymentFlag(val) {
+    const normalized = normalizeImportText(val);
+    if (!normalized || ['false', '0', 'nao', 'nao pago', 'não pago', 'no', 'n', 'pendente'].includes(normalized)) {
+      return false;
+    }
+    return ['true', '1', 'sim', 's', 'yes', 'y', 'pago', 'paid', 'ok', 'check', 'v'].includes(normalized);
+  }
+
+  function isValidISODate(dateString) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateString || ''))) return false;
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  }
+
+  function dateNeedsReferenceMonthYear(val) {
+    const parts = String(val || '').trim().match(/(\d{1,4})/g);
+    if (!parts) return false;
+    return parts.length < 3;
+  }
+
+  function parseCurrencyString(val) {
+    if (val === undefined || val === null) return null;
+    let cleanStr = String(val).trim();
+    if (!cleanStr) return 0;
+
+    cleanStr = cleanStr
+      .replace(/[^\d,.-]/g, '')
+      .replace(/(?!^)-/g, '');
+
+    if (!cleanStr || cleanStr === '-' || cleanStr === ',' || cleanStr === '.') {
+      return null;
+    }
+
+    const hadDecimalSeparator = /[,.]/.test(cleanStr);
+
+    // Resolve both comma and dot separation cases
+    if (cleanStr.includes('.') && cleanStr.includes(',')) {
+      const dotIndex = cleanStr.lastIndexOf('.');
+      const commaIndex = cleanStr.lastIndexOf(',');
+      if (dotIndex < commaIndex) {
+        // 1.217,00 -> 1217.00
+        cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+      } else {
+        // 1,217.00 -> 1217.00
+        cleanStr = cleanStr.replace(/,/g, '');
+      }
+    } else if (cleanStr.includes(',')) {
+      // Single comma case: check if it represents a decimal point
+      const parts = cleanStr.split(',');
+      if (parts.length === 2 && parts[1].length <= 2) {
+        cleanStr = cleanStr.replace(',', '.');
+      } else {
+        cleanStr = cleanStr.replace(/,/g, '');
+      }
+    } else if (cleanStr.includes('.')) {
+      const parts = cleanStr.split('.');
+      if (parts.length > 2) {
+        const decimals = parts.pop();
+        cleanStr = `${parts.join('')}.${decimals}`;
+      }
+    }
+
+    let parsed = parseFloat(cleanStr);
+    if (isNaN(parsed) || parsed < 0) return null;
+    if (!hadDecimalSeparator && parsed >= 5000 && parsed % 100 === 0) {
+      parsed = parsed / 100;
+    }
+    return Number(parsed.toFixed(2));
+  }
+
+  function getImportErrorMessage(err) {
+    const rawMessage = String(err?.message || err || '');
+    const rawCode = String(err?.code || '');
+    const lower = rawMessage.toLowerCase();
+
+    if (rawCode === '42703' || lower.includes('column') || lower.includes('coluna')) {
+      return `Erro ao salvar cliente: coluna não encontrada no Supabase (${rawMessage})`;
+    }
+    if (rawCode === '42501' || lower.includes('row-level security') || lower.includes('permission denied') || lower.includes('permiss')) {
+      return 'Erro ao importar: permissão negada no Supabase.';
+    }
+    if (rawCode === '23502' || lower.includes('null value')) {
+      return `Erro ao importar: campo obrigatório vazio (${rawMessage})`;
+    }
+    if (rawCode === '22P02' || lower.includes('invalid input')) {
+      return `Erro ao importar: tipo de dado inválido (${rawMessage})`;
+    }
+    if (lower.includes('valor')) {
+      return rawMessage;
+    }
+    if (lower.includes('data')) {
+      return rawMessage;
+    }
+    return `Erro ao importar planilha: ${rawMessage || 'erro inesperado ao salvar cliente'}`;
+  }
+
+  async function correctExistingClientValues() {
+    const clients = await window.db.getAll('clients');
+    const products = await window.db.getAll('products');
+    
+    // Gather all unique plan prices in the system
+    const allPlanPrices = new Set();
+    products.forEach(p => {
+      if (p.plans) {
+        p.plans.forEach(pl => {
+          const priceNum = parseFloat(pl.price);
+          if (!isNaN(priceNum) && priceNum > 0) {
+            allPlanPrices.add(priceNum);
+          }
+        });
+      }
+    });
+
+    let correctedCount = 0;
+
+    for (const client of clients) {
+      const val = parseFloat(client.saleValue);
+      if (isNaN(val) || val <= 0) continue;
+
+      let corrected = false;
+      let newVal = val;
+
+      // Rule 1: check if it matches 100x any plan price in the system (concatenation symptom)
+      for (const planPrice of allPlanPrices) {
+        if (Math.abs(val - (planPrice * 100)) < 0.01) {
+          newVal = planPrice;
+          corrected = true;
+          break;
+        }
+      }
+
+      // Rule 2: if it is abnormally high (e.g. >= 5000) and ends with 00 (e.g. 21700)
+      if (!corrected && val >= 5000) {
+        const possibleVal = val / 100;
+        if (possibleVal < 2000) {
+          newVal = possibleVal;
+          corrected = true;
+        }
+      }
+
+      if (corrected) {
+        client.saleValue = newVal;
+        await window.db.put('clients', client);
+        correctedCount++;
+      }
+    }
+
+    if (correctedCount > 0) {
+      console.log(`[Help Vitall] Corrected ${correctedCount} client records with concatenated values.`);
+    }
   }
 
   // Open and close Modal routines
@@ -1387,6 +1736,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     importState.rows = [];
     importState.mappedClients = [];
     importState.duplicatesCount = 0;
+    importState.rowErrors = [];
     
     elements.importFile.value = '';
     elements.importGSheetsUrl.value = '';
@@ -1405,7 +1755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function populateImportProductsDropdown() {
     const productsSelect = elements.importDefaultProduct;
-    productsSelect.innerHTML = '<option value="" disabled selected>Selecione o produto padrão</option>';
+    productsSelect.innerHTML = '<option value="" selected>Sem produto padrão</option>';
     
     state.products.forEach(p => {
       if (p.status === 'active') {
@@ -1416,7 +1766,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    elements.importDefaultPlan.innerHTML = '<option value="" disabled selected>Selecione um produto primeiro</option>';
+    elements.importDefaultPlan.innerHTML = '<option value="" selected>Sem plano padrão</option>';
     elements.importDefaultPlan.disabled = true;
   }
 
@@ -1426,7 +1776,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const product = state.products.find(p => p.id === productId);
     const planSelect = elements.importDefaultPlan;
     
-    planSelect.innerHTML = '<option value="" disabled selected>Selecione o plano padrão</option>';
+    planSelect.innerHTML = '<option value="" selected>Sem plano padrão</option>';
     
     if (product && product.plans && product.plans.length > 0) {
       product.plans.forEach(plan => {
@@ -1443,10 +1793,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Event Listeners for Opening/Closing
   elements.btnOpenImportModal.addEventListener('click', () => {
-    if (state.products.length === 0) {
-      showToast('Por favor, cadastre pelo menos um produto no menu "Produtos" antes de importar.', 'error');
-      return;
-    }
     openImportModal();
   });
 
@@ -1591,6 +1937,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
     
+    const MONTH_NAMES = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const detected = detectMonthYearFromFilename(importState.fileName);
+    if (detected) {
+      elements.importRefMonth.value = detected.month;
+      elements.importRefYear.value = detected.year;
+      elements.importDetectedMonthYear.textContent = `${MONTH_NAMES[detected.month]} de ${detected.year}`;
+    } else {
+      const now = new Date();
+      elements.importRefMonth.value = now.getMonth();
+      elements.importRefYear.value = now.getFullYear();
+      elements.importDetectedMonthYear.textContent = 'Não identificado (Usando atual)';
+    }
+
     showToast(`${importState.rows.length} linhas de dados encontradas.`);
   }
 
@@ -1616,17 +1978,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       select.appendChild(defaultOpt);
       
       let bestMatch = '';
+      let bestScore = 0;
       importState.headers.forEach(header => {
         const opt = document.createElement('option');
         opt.value = header;
         opt.textContent = header;
         select.appendChild(opt);
         
-        const normHeader = header.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const normHeader = normalizeImportText(header);
         field.auto.forEach(keyword => {
-          const normKeyword = keyword.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          if (normHeader === normKeyword || normHeader.includes(normKeyword) || normKeyword.includes(normHeader)) {
+          const normKeyword = normalizeImportText(keyword);
+          let score = 0;
+          if (normHeader === normKeyword) {
+            score = 100;
+          } else if (normHeader.startsWith(normKeyword)) {
+            score = 70;
+          } else if (normHeader.includes(normKeyword)) {
+            score = normKeyword.length <= 4 ? 25 : 50;
+          }
+
+          if (score > bestScore) {
             bestMatch = header;
+            bestScore = score;
           }
         });
       });
@@ -1645,14 +2018,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('Por favor, selecione uma planilha ou carregue um link do Google Sheets válido.', 'error');
       return false;
     }
-    if (!elements.importDefaultProduct.value) {
-      showToast('Por favor, selecione um produto padrão.', 'error');
-      return false;
-    }
-    if (!elements.importDefaultPlan.value) {
-      showToast('Por favor, selecione um plano padrão.', 'error');
-      return false;
-    }
     return true;
   }
 
@@ -1660,6 +2025,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const nameMap = document.getElementById('map_name').value;
     if (!nameMap) {
       showToast('Mapeamento da coluna "Nome do Cliente" é obrigatório.', 'error');
+      return false;
+    }
+    const dateMap = document.getElementById('map_date').value;
+    if (!dateMap) {
+      showToast('Erro ao importar: mapeie a coluna DATA para manter o mês correto da planilha.', 'error');
       return false;
     }
     return true;
@@ -1671,27 +2041,90 @@ document.addEventListener('DOMContentLoaded', async () => {
       mappings[field.key] = document.getElementById(`map_${field.key}`).value;
     });
 
-    const defaultProductId = Number(elements.importDefaultProduct.value);
-    const defaultPlanName = elements.importDefaultPlan.value;
+    const defaultProductId = elements.importDefaultProduct.value ? Number(elements.importDefaultProduct.value) : null;
+    const defaultPlanName = elements.importDefaultPlan.value || '';
     const defaultProduct = state.products.find(p => p.id === defaultProductId);
-    const defaultPlan = defaultProduct?.plans?.find(pl => pl.name === defaultPlanName);
-    const fallbackValue = defaultPlan ? parseFloat(defaultPlan.price) : 0;
+
+    const refMonth = parseInt(elements.importRefMonth.value, 10);
+    const refYear = parseInt(elements.importRefYear.value, 10);
 
     importState.mappedClients = [];
+    importState.rowErrors = [];
+
+    // Scan if there is at least one valid date in the spreadsheet
+    let hasAnyValidDate = false;
+    if (mappings.date) {
+      for (const row of importState.rows) {
+        if (row[mappings.date]) {
+          const parsed = parseSpreadsheetDate(row[mappings.date], refMonth, refYear);
+          if (parsed) {
+            hasAnyValidDate = true;
+            break;
+          }
+        }
+      }
+    }
     
-    importState.rows.forEach(row => {
+    let minDate = null;
+    let maxDate = null;
+    let countPaid = 0;
+    let countPending = 0;
+    let countLoss = 0;
+    let totalRevenue = 0;
+    let totalLossVal = 0;
+    let needsReferenceMonthYear = false;
+
+    let plan2Count = 0;
+    let plan3Count = 0;
+    let plan4Count = 0;
+    let plan6Count = 0;
+    let planUnknownCount = 0;
+
+    importState.rows.forEach((row, rowIndex) => {
       const name = mappings.name ? row[mappings.name] : '';
       if (!name || String(name).trim() === '') return;
 
       const phone = mappings.phone ? row[mappings.phone] : '';
-      const date = parseDateString(mappings.date ? row[mappings.date] : '');
+      
+      const rawDate = mappings.date ? row[mappings.date] : '';
+      if (dateNeedsReferenceMonthYear(rawDate)) {
+        needsReferenceMonthYear = true;
+      }
+
+      const date = parseSpreadsheetDate(rawDate, refMonth, refYear);
+      if (!date || !isValidISODate(date)) {
+        const message = `Erro ao importar: data inválida na linha ${rowIndex + 2}.`;
+        importState.rowErrors.push(message);
+        console.error('[Help Vitall][Import]', message, { row });
+        return;
+      }
+      
       const attendant = mappings.attendant ? row[mappings.attendant] : '';
       const saleValue = mappings.saleValue ? row[mappings.saleValue] : '';
+      const mappedProductName = mappings.productName ? row[mappings.productName] : '';
+      const mappedPlanName = mappings.planName ? row[mappings.planName] : '';
       const bottles = mappings.bottles ? row[mappings.bottles] : '';
       const sent = mappings.sent ? row[mappings.sent] : '';
       const paidStatus = mappings.paidStatus ? row[mappings.paidStatus] : '';
-      const paymentDate = mappings.paymentDate ? row[mappings.paymentDate] : '';
-      const deliveryDate = mappings.deliveryDate ? row[mappings.deliveryDate] : '';
+      
+      const rawPaymentDate = mappings.paymentDate ? row[mappings.paymentDate] : '';
+      const rawDeliveryDate = mappings.deliveryDate ? row[mappings.deliveryDate] : '';
+      const paymentDate = parseSpreadsheetDate(rawPaymentDate, refMonth, refYear);
+      const deliveryDate = parseSpreadsheetDate(rawDeliveryDate, refMonth, refYear);
+      if (rawPaymentDate && (!paymentDate || !isValidISODate(paymentDate))) {
+        const message = `Erro ao importar: data do pagamento inválida na linha ${rowIndex + 2}.`;
+        importState.rowErrors.push(message);
+        console.error('[Help Vitall][Import]', message, { value: rawPaymentDate, row });
+        return;
+      }
+      if (rawDeliveryDate && (!deliveryDate || !isValidISODate(deliveryDate))) {
+        const message = `Erro ao importar: data de entrega inválida na linha ${rowIndex + 2}.`;
+        importState.rowErrors.push(message);
+        console.error('[Help Vitall][Import]', message, { value: rawDeliveryDate, row });
+        return;
+      }
+      const paymentMethod = mappings.paymentMethod ? row[mappings.paymentMethod] : '';
+      
       const delivered = mappings.delivered ? row[mappings.delivered] : '';
       const trackingCode = mappings.trackingCode ? row[mappings.trackingCode] : '';
       const observations = mappings.observations ? row[mappings.observations] : '';
@@ -1704,13 +2137,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Import rules
       let status = 'Pagamento pendente';
       const paidStr = String(paidStatus).toLowerCase().trim();
-      const deliveryStr = String(deliveryDate).toLowerCase().trim();
+      const deliveryStr = String(rawDeliveryDate).toLowerCase().trim();
       const deliveredStr = String(delivered).toLowerCase().trim();
       const obsStr = String(observations).toLowerCase().trim();
-      const combinedStatusText = `${paidStr} ${deliveryStr} ${deliveredStr} ${obsStr}`;
+      const wholeRowText = normalizeImportText(Object.values(row).join(' '));
+      const combinedStatusText = normalizeImportText(`${paidStr} ${deliveryStr} ${deliveredStr} ${obsStr} ${wholeRowText}`);
 
-      const isPaid = parseBooleanFlag(paidStatus) || paidStr === 'pago' || paidStr === 'paid';
-      const isScam = combinedStatusText.includes('golpe') || combinedStatusText.includes('scam') || combinedStatusText.includes('fraude');
+      const isPaid = parsePaymentFlag(paidStatus);
+      const isScam = ['golpe', 'scam', 'fraude', 'devolvido', 'devolucao', 'cliente fez devolucao', 'prejuizo'].some(term => combinedStatusText.includes(term));
 
       if (isScam) {
         status = 'Golpe';
@@ -1720,9 +2154,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         status = 'Pagamento pendente';
       }
 
-      let parsedValue = parseFloat(String(saleValue).replace(/[^\d.,-]/g, '').replace(',', '.'));
-      if (isNaN(parsedValue)) {
-        parsedValue = fallbackValue;
+      const parsedValue = parseCurrencyString(saleValue);
+      if (parsedValue === null) {
+        const message = `Erro ao importar planilha: campo valor inválido na linha ${rowIndex + 2}.`;
+        importState.rowErrors.push(message);
+        console.error('[Help Vitall][Import]', message, { value: saleValue, row });
+        return;
       }
 
       let parsedBottles = parseInt(String(bottles).replace(/\D/g, ''), 10);
@@ -1730,25 +2167,87 @@ document.addEventListener('DOMContentLoaded', async () => {
         parsedBottles = 0;
       }
 
+      if (date) {
+        if (!minDate || date < minDate) minDate = date;
+        if (!maxDate || date > maxDate) maxDate = date;
+      }
+
+      if (status === 'Pago') {
+        countPaid++;
+        totalRevenue += parsedValue;
+      } else if (status === 'Golpe') {
+        countLoss++;
+        totalLossVal += parsedValue;
+      } else {
+        countPending++;
+      }
+
+      let finalCountry = String(country).trim();
+      if (!finalCountry) {
+        finalCountry = 'Estados Unidos';
+      }
+
+      let finalProductId = defaultProductId;
+      let finalProductName = defaultProduct?.name || '';
+      const productNameFromSheet = String(mappedProductName || '').trim();
+      if (productNameFromSheet) {
+        const foundProduct = state.products.find(p => normalizeImportText(p.name) === normalizeImportText(productNameFromSheet));
+        if (foundProduct) {
+          finalProductId = foundProduct.id;
+          finalProductName = foundProduct.name;
+        } else {
+          finalProductId = null;
+          finalProductName = productNameFromSheet;
+        }
+      }
+
+      // Auto-detect plan name based on parsed sale value
+      let finalPlanName = '';
+      const roundedVal = Math.round(parsedValue);
+      if (roundedVal === 217) {
+        finalPlanName = '2 meses';
+        plan2Count++;
+      } else if (roundedVal === 247) {
+        finalPlanName = '3 meses';
+        plan3Count++;
+      } else if (roundedVal === 267) {
+        finalPlanName = '4 meses';
+        plan4Count++;
+      } else if (roundedVal === 397) {
+        finalPlanName = '6 meses';
+        plan6Count++;
+      } else {
+        // Fallback to sheet column plan name, then standard default plan name selected, or 'Não identificado'
+        finalPlanName = String(mappedPlanName || defaultPlanName || '').trim() || 'Não identificado';
+        planUnknownCount++;
+      }
+
+      const finalPaymentDate = status === 'Pago' ? (paymentDate || date) : (paymentDate || '');
+      const financialDate = status === 'Pago' ? finalPaymentDate : date;
+
       const clientData = {
         name: String(name).trim(),
         phone: String(phone).trim(),
-        country: String(country).trim() || 'Brasil',
+        country: finalCountry,
         zip: String(zip).trim(),
         address: String(address).trim(),
         city: String(city).trim(),
         state: String(stateVal).trim(),
-        productId: defaultProductId,
-        planName: defaultPlanName,
+        productId: finalProductId,
+        productName: finalProductName,
+        planName: finalPlanName,
         saleValue: parsedValue,
-        attendant: String(attendant).trim() || getDefaultAttendantForProduct(defaultProductId),
+        attendant: String(attendant).trim() || getDefaultAttendantForProduct(finalProductId),
         date: date,
         status: status,
+        paid: status === 'Pago',
         bottles: parsedBottles,
         sent: parseBooleanFlag(sent),
         trackingCode: String(trackingCode).trim(),
-        paymentDate: String(paymentDate).trim(),
-        deliveryDate: String(deliveryDate).trim(),
+        paymentDate: finalPaymentDate,
+        financialDate: financialDate,
+        paymentMethod: String(paymentMethod).trim(),
+        deliveryDate: deliveryDate,
         delivered: parseBooleanFlag(delivered),
         observations: String(observations).trim()
       };
@@ -1770,6 +2269,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     importState.duplicatesCount = dupCount;
 
+    if (needsReferenceMonthYear) {
+      showToast('A planilha contém datas sem ano. Confira o mês/ano de referência antes de confirmar.', 'error');
+      console.warn('[Help Vitall][Import] Datas sem ano detectadas; usando mês/ano selecionado na tela.', {
+        month: refMonth + 1,
+        year: refYear
+      });
+    }
+
+    if (importState.rowErrors.length > 0) {
+      showToast(importState.rowErrors[0], 'error');
+    }
+
     // Render Preview UI
     const badge = elements.previewDuplicatesCount;
     if (dupCount > 0) {
@@ -1779,11 +2290,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       badge.style.display = 'none';
     }
 
+    // Update summary stats in DOM
+    elements.importSummaryPaid.textContent = countPaid;
+    elements.importSummaryPending.textContent = countPending;
+    elements.importSummaryLoss.textContent = countLoss;
+    elements.importSummaryRevenue.textContent = formatCurrency(totalRevenue);
+    elements.importSummaryLossVal.textContent = formatCurrency(totalLossVal);
+    
+    // Update plan counts in DOM
+    elements.importSummaryPlan2.textContent = plan2Count;
+    elements.importSummaryPlan3.textContent = plan3Count;
+    elements.importSummaryPlan4.textContent = plan4Count;
+    elements.importSummaryPlan6.textContent = plan6Count;
+    elements.importSummaryPlanUnknown.textContent = planUnknownCount;
+
+    if (minDate && maxDate) {
+      elements.importSummaryDatesRange.textContent = `${formatDateDisplay(minDate)} a ${formatDateDisplay(maxDate)}`;
+    } else {
+      elements.importSummaryDatesRange.textContent = 'Nenhuma data';
+    }
+
     const previewBody = elements.importPreviewTableBody;
     previewBody.innerHTML = '';
 
     if (importState.mappedClients.length === 0) {
-      previewBody.innerHTML = '<tr><td colspan="8" class="table-empty">Nenhum registro de cliente válido encontrado para importar.</td></tr>';
+      previewBody.innerHTML = '<tr><td colspan="7" class="table-empty">Nenhum registro de cliente válido encontrado para importar.</td></tr>';
       return;
     }
 
@@ -1807,8 +2338,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       else if (client.status === 'Golpe') statusBadge = 'badge-danger';
       else if (client.status === 'Pagamento pendente') statusBadge = 'badge-warning';
 
-      const prod = state.products.find(p => p.id === client.productId);
-      const prodName = prod ? prod.name : 'Desconhecido';
+      let planDisplay = escapeHTML(client.planName);
+      if (client.planName === 'Não identificado') {
+        planDisplay = `<span class="badge badge-warning" style="font-size:0.75rem; font-weight:600; background-color: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">⚠️ Não identificado</span>`;
+      }
 
       tr.innerHTML = `
         <td>
@@ -1816,18 +2349,29 @@ document.addEventListener('DOMContentLoaded', async () => {
           ${dupBadge}
         </td>
         <td>${formatCurrency(client.saleValue)}</td>
-        <td>${escapeHTML(prodName)}</td>
+        <td>${planDisplay}</td>
         <td>${escapeHTML(client.attendant)}</td>
         <td><span class="badge ${statusBadge}">${escapeHTML(client.status)}</span></td>
-        <td>${escapeHTML(client.deliveryDate || 'Não inf.')}</td>
-        <td>${escapeHTML(client.trackingCode || 'Sem rastreio')}</td>
-        <td>${escapeHTML(client.paymentDate || '-')}</td>
+        <td>${escapeHTML(client.date ? formatDateDisplay(client.date) : '-')}</td>
+        <td>${escapeHTML(client.paymentDate ? formatDateDisplay(client.paymentDate) : '-')}</td>
       `;
       previewBody.appendChild(tr);
     });
   }
 
   async function executeImport() {
+    if (importState.rowErrors.length > 0) {
+      const firstError = importState.rowErrors[0];
+      console.error('[Help Vitall][Import] Import blocked because preview has validation errors.', importState.rowErrors);
+      showToast(firstError, 'error');
+      return;
+    }
+
+    if (importState.mappedClients.length === 0) {
+      showToast('Erro ao importar planilha: nenhum cliente válido encontrado na prévia.', 'error');
+      return;
+    }
+
     let importedCount = 0;
     let paidCount = 0;
     let pendingCount = 0;
@@ -1835,6 +2379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let errorCount = 0;
     let totalRevenue = 0;
     let totalLoss = 0;
+    let firstErrorMessage = '';
     
     const action = elements.importDuplicateAction.value;
     
@@ -1842,7 +2387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.btnImportNext.disabled = true;
     elements.btnImportNext.textContent = 'Processando...';
 
-    for (const client of importState.mappedClients) {
+    for (const [index, client] of importState.mappedClients.entries()) {
       try {
         if (!client.name) {
           errorCount++;
@@ -1889,7 +2434,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           pendingCount++;
         }
       } catch (err) {
-        console.error('Error importing row:', err);
+        const friendlyMessage = getImportErrorMessage(err);
+        if (!firstErrorMessage) {
+          firstErrorMessage = friendlyMessage;
+        }
+        console.error(`[Help Vitall][Import] Error importing row ${index + 1}: ${friendlyMessage}`, {
+          error: err,
+          client
+        });
         errorCount++;
       }
     }
@@ -1939,7 +2491,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderClientsList();
 
     showImportStage(4);
-    showToast('Importação de clientes finalizada!');
+    if (errorCount > 0) {
+      showToast(firstErrorMessage || `Erro ao importar planilha: ${errorCount} linha(s) falharam.`, 'error');
+    } else {
+      showToast('Importação de clientes finalizada!');
+    }
     elements.btnImportNext.disabled = false;
   }
 
@@ -1995,6 +2551,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (importState.currentStage === 4) {
       closeImportModal();
     }
+  });
+
+  elements.importRefMonth.addEventListener('change', () => {
+    generateImportPreview();
+  });
+
+  elements.importRefYear.addEventListener('change', () => {
+    generateImportPreview();
   });
 
   elements.btnImportBack.addEventListener('click', () => {
@@ -2380,9 +2944,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function checkSession() {
     if (!supabase) {
-      elements.loginErrorMsg.textContent = 'Supabase não configurado. Configure as variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.';
-      elements.loginErrorMsg.style.display = 'block';
-      return false;
+      // Local development bypass: automatically log in as local admin
+      console.warn("Supabase not configured. Using local bypass mode for development.");
+      authState.user = { id: 'local-admin', email: 'admin@helpvitall.com', role: 'admin' };
+      return true;
     }
 
     try {
@@ -2406,7 +2971,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loginUser(email, password) {
     if (!supabase) {
-      throw new Error('Supabase não configurado. Confira as variáveis públicas na Vercel.');
+      // Local development bypass: allow any login credentials
+      authState.user = { id: 'local-admin', email: email.trim(), role: 'admin' };
+      return authState.user;
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
