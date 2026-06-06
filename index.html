@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help Vitall - CRM & Gestão Financeira</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="theme-system">
+
+  <!-- Mobile Sidebar Overlay Backdrop -->
+  <div class="sidebar-overlay" id="sidebarOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:95; backdrop-filter:blur(2px);"></div>
+
+  <!-- ==========================================================================
+       SIDEBAR NAVIGATION
+       ========================================================================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <img src="Pngss/logohel.png" alt="Logo" onerror="this.onerror=null; this.src='Pngss/logohelp.png'; this.addEventListener('error', function(){this.style.display='none';})">
+      <span id="sidebarSystemName">Help Vitall</span>
+    </div>
+    <ul class="sidebar-menu">
+      <li class="sidebar-item active" data-view="dashboard">
+        <a>
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          Dashboard
+        </a>
+      </li>
+      <li class="sidebar-item" data-view="clients">
+        <a>
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Clientes
+        </a>
+      </li>
+      <li class="sidebar-item" data-view="products">
+        <a>
+          <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          Produtos
+        </a>
+      </li>
+      <li class="sidebar-item" data-view="expenses">
+        <a>
+          <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Despesas
+        </a>
+      </li>
+      <li class="sidebar-item" data-view="reports">
+        <a>
+          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Relatórios
+        </a>
+      </li>
+      <li class="sidebar-item" data-view="settings">
+        <a>
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Configurações
+        </a>
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <p>&copy; 2026 Help Vitall</p>
+      <p style="font-size:0.65rem; margin-top:2px;">V1.0 - Local DB Active</p>
+    </div>
+  </aside>
+
+  <!-- ==========================================================================
+       MAIN SCREEN WRAPPER
+       ========================================================================== -->
+  <div class="main-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-title-container">
+        <button class="menu-toggle" id="menuToggle" aria-label="Abrir Menu">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <h1 class="page-title" id="currentViewTitle">Dashboard</h1>
+      </div>
+      <div class="header-actions">
+        <!-- Optional notifications or indicators can be here -->
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-content">
+
+      <!-- ==========================================================================
+           1. DASHBOARD VIEW
+           ========================================================================== -->
+      <section class="page-view active" id="view-dashboard">
+        <div class="dashboard-controls">
+          <div class="filter-group">
+            <!-- Period filter -->
+            <select class="select-filter" id="dashboardPeriodFilter">
+              <option value="today">Hoje</option>
+              <option value="yesterday">Ontem</option>
+              <option value="7days" selected>Últimos 7 dias</option>
+              <option value="14days">Últimos 14 dias</option>
+              <option value="30days">Últimos 30 dias</option>
+              <option value="custom">Período personalizado</option>
+            </select>
+
+            <!-- Custom date range wrapper -->
+            <div class="custom-date-range" id="customDateRangeWrapper" style="display: none;">
+              <input type="date" class="date-filter-input" id="dashboardStartDate">
+              <span style="color: var(--text-secondary); font-size: 0.85rem;">até</span>
+              <input type="date" class="date-filter-input" id="dashboardEndDate">
+            </div>
+
+            <!-- Product filter -->
+            <select class="select-filter" id="dashboardProductFilter">
+              <option value="all">Todos os produtos</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- KPI Cards Grid -->
+        <div class="stats-grid">
+          <!-- Card 1: Faturamento Total -->
+          <div class="kpi-card kpi-revenue">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Faturamento Total</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiRevenueVal">$0.00</div>
+            <div class="kpi-subtitle">Vendas confirmadas (Pago)</div>
+          </div>
+
+          <!-- Card 2: Lucro Líquido -->
+          <div class="kpi-card kpi-profit">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Lucro Líquido</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiProfitVal">$0.00</div>
+            <div class="kpi-subtitle">Faturamento - Gastos - Prejuízos</div>
+          </div>
+
+          <!-- Card 3: Gastos Totais -->
+          <div class="kpi-card kpi-expenses">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Gastos Totais</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiExpensesVal">$0.00</div>
+            <div class="kpi-subtitle">Despesas diárias no período</div>
+          </div>
+
+          <!-- Card 4: Prejuízo Total -->
+          <div class="kpi-card kpi-loss">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Prejuízo Total</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiLossVal">$0.00</div>
+            <div class="kpi-subtitle">Vendas perdidas (Golpe)</div>
+          </div>
+
+          <!-- Card 5: Clientes Pagos -->
+          <div class="kpi-card kpi-revenue">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Clientes Pagos</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiPaidClientsVal">0</div>
+            <div class="kpi-subtitle">Etiqueta: Pago</div>
+          </div>
+
+          <!-- Card 6: Clientes Pendentes -->
+          <div class="kpi-card kpi-pending">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Clientes Pendentes</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiPendingClientsVal">0</div>
+            <div class="kpi-subtitle">Etiqueta: Pagamento pendente</div>
+          </div>
+
+          <!-- Card 7: Clientes Golpe -->
+          <div class="kpi-card kpi-loss">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Golpes</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiScamClientsVal">0</div>
+            <div class="kpi-subtitle">Etiqueta: Golpe</div>
+          </div>
+
+          <!-- Card 8: Ticket Médio -->
+          <div class="kpi-card kpi-ticket">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Ticket Médio</span>
+              <div class="kpi-icon-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiAvgTicketVal">$0.00</div>
+            <div class="kpi-subtitle">Faturamento / Clientes Pagos</div>
+          </div>
+        </div>
+
+        <!-- Profit/Loss Dynamic SVG Chart -->
+        <div class="chart-container-wrapper">
+          <div class="chart-header">
+            <h2 class="chart-title">Desempenho Financeiro Diário (Lucro Líquido)</h2>
+            <div class="chart-legend">
+              <div class="legend-item">
+                <div class="legend-color legend-green"></div>
+                <span>Lucro Positivo</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color legend-red"></div>
+                <span>Prejuízo / Negativo</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-svg-container" id="dashboardChartContainer">
+            <!-- Dynamic SVG elements will be injected here -->
+          </div>
+        </div>
+
+        <!-- Product performance table on dashboard -->
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <h2 class="table-title">Desempenho por Produto no Período</h2>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table" id="dashboardProductTable">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Nicho</th>
+                  <th>Clientes Pagos</th>
+                  <th>Clientes Pendentes</th>
+                  <th>Golpes</th>
+                  <th>Faturamento</th>
+                  <th>Gastos Relacionados</th>
+                  <th>Prejuízos</th>
+                  <th>Lucro Líquido</th>
+                </tr>
+              </thead>
+              <tbody id="dashboardProductTableBody">
+                <tr>
+                  <td colspan="9" class="table-empty">Nenhum dado encontrado</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           2. CLIENTS VIEW
+           ========================================================================== -->
+      <section class="page-view" id="view-clients">
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <div class="search-input-wrapper">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" class="search-input" id="searchClientsInput" placeholder="Buscar clientes por nome, tel, país...">
+            </div>
+            <button class="btn btn-primary" id="btnOpenAddClientModal">
+              <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Novo Cliente
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Telefone</th>
+                  <th>País</th>
+                  <th>Produto</th>
+                  <th>Plano</th>
+                  <th>Valor</th>
+                  <th>Atendente</th>
+                  <th>Data</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="clientsTableBody">
+                <tr>
+                  <td colspan="10" class="table-empty">Nenhum cliente cadastrado</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           3. PRODUCTS VIEW
+           ========================================================================== -->
+      <section class="page-view" id="view-products">
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <div class="search-input-wrapper">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" class="search-input" id="searchProductsInput" placeholder="Buscar produtos...">
+            </div>
+            <button class="btn btn-primary" id="btnOpenAddProductModal">
+              <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Novo Produto
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Nicho</th>
+                  <th>Atendentes</th>
+                  <th>Planos / Tickets</th>
+                  <th>Custo (Fixo)</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="productsTableBody">
+                <tr>
+                  <td colspan="7" class="table-empty">Nenhum produto cadastrado</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           4. EXPENSES VIEW
+           ========================================================================== -->
+      <section class="page-view" id="view-expenses">
+        <div class="data-table-container">
+          <div class="table-header-bar">
+            <div class="search-input-wrapper">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" class="search-input" id="searchExpensesInput" placeholder="Buscar despesas...">
+            </div>
+            <button class="btn btn-primary" id="btnOpenAddExpenseModal">
+              <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Nova Despesa
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Categoria</th>
+                  <th>Valor</th>
+                  <th>Data</th>
+                  <th>Produto Relacionado</th>
+                  <th>Observação</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="expensesTableBody">
+                <tr>
+                  <td colspan="7" class="table-empty">Nenhuma despesa cadastrada</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           5. REPORTS VIEW
+           ========================================================================== -->
+      <section class="page-view" id="view-reports">
+        <div class="dashboard-controls" style="margin-bottom: 24px;">
+          <div class="filter-group">
+            <select class="select-filter" id="reportsPeriodFilter">
+              <option value="today">Hoje</option>
+              <option value="yesterday">Ontem</option>
+              <option value="7days" selected>Últimos 7 dias</option>
+              <option value="14days">Últimos 14 dias</option>
+              <option value="30days">Últimos 30 dias</option>
+              <option value="custom">Período personalizado</option>
+            </select>
+            <div class="custom-date-range" id="reportsCustomDateRangeWrapper" style="display: none;">
+              <input type="date" class="date-filter-input" id="reportsStartDate">
+              <span style="color: var(--text-secondary); font-size: 0.85rem;">até</span>
+              <input type="date" class="date-filter-input" id="reportsEndDate">
+            </div>
+          </div>
+        </div>
+
+        <div class="product-reports-grid" id="productReportsGrid">
+          <!-- Product report cards will be dynamically injected here -->
+          <div style="grid-column: 1 / -1;" class="table-empty" id="reportsEmptyState">
+            <svg style="width: 48px; height: 48px; margin: 0 auto 12px; display: block; opacity: 0.5;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Nenhum produto cadastrado para gerar relatórios
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           6. CONFIGURATIONS VIEW
+           ========================================================================== -->
+      <section class="page-view" id="view-settings">
+        <div class="config-container">
+          <form id="settingsForm">
+            <div class="form-group">
+              <label class="form-label" for="settingsSystemName">Nome do CRM / Sistema</label>
+              <input type="text" class="form-input" id="settingsSystemName" value="Help Vitall" required>
+              <span class="form-helper">Nome que será exibido no cabeçalho e na barra lateral.</span>
+            </div>
+
+            <div class="form-group" style="margin-top: 28px;">
+              <label class="form-label">Preferências de Tema</label>
+              <div class="theme-options-grid">
+                <!-- Theme Option: Light -->
+                <div class="theme-option-card" data-theme="light" id="themeOptLight">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  <span>Claro</span>
+                </div>
+                <!-- Theme Option: Dark -->
+                <div class="theme-option-card" data-theme="dark" id="themeOptDark">
+                  <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  <span>Escuro</span>
+                </div>
+                <!-- Theme Option: System -->
+                <div class="theme-option-card" data-theme="system" id="themeOptSystem">
+                  <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  <span>Sistema</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 32px; border-top: 1px solid var(--border-color); padding-top: 24px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 4px;">Gerenciamento de Dados</h4>
+                <p style="font-size: 0.75rem; color: var(--text-muted);">Apague todas as informações do CRM local.</p>
+              </div>
+              <button type="button" class="btn btn-danger btn-sm" id="btnResetDatabase">Limpar Banco de Dados</button>
+            </div>
+
+            <div style="margin-top: 32px; border-top: 1px solid var(--border-color); padding-top: 24px; text-align: right;">
+              <button type="submit" class="btn btn-primary">Salvar Configurações</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL DIALOGS
+       ========================================================================== -->
+
+  <!-- Modal: Products CRUD -->
+  <div class="modal-backdrop" id="productModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title" id="productModalTitle">Cadastrar Produto</h3>
+        <button class="modal-close" id="btnCloseProductModal" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="productForm">
+        <input type="hidden" id="prodId" value="">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="prodName">Nome do Produto *</label>
+            <input type="text" class="form-input" id="prodName" required placeholder="Ex: Artro Flex">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prodNiche">Nicho *</label>
+            <input type="text" class="form-input" id="prodNiche" required placeholder="Ex: Dores articulares">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="prodCost">Custo do Produto (Unidade) *</label>
+              <input type="number" step="0.01" class="form-input" id="prodCost" value="0.00" min="0" required placeholder="0.00">
+              <span class="form-helper">Custo unitário fixo de produção/aquisição.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="prodStatus">Status *</label>
+              <select class="form-select" id="prodStatus" required>
+                <option value="active">Ativo</option>
+                <option value="inactive">Inativo</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prodAttendants">Atendentes Responsáveis *</label>
+            <input type="text" class="form-input" id="prodAttendants" required placeholder="Ex: João, Maria, Pedro (separados por vírgula)">
+            <span class="form-helper">Atendentes autorizados a vender este produto.</span>
+          </div>
+
+          <!-- Dynamic Plans/Tickets -->
+          <div class="form-group" style="margin-top: 24px;">
+            <label class="form-label">Planos ou Tickets do Produto *</label>
+            <div class="plans-list-container">
+              <div id="plansListWrapper">
+                <!-- Plan items will be dynamically added here -->
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnAddPlanItem" style="margin-top: 10px; width: 100%;">
+                <svg style="width: 14px; height: 14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Adicionar Plano
+              </button>
+            </div>
+            <span class="form-helper">Adicione os planos de venda disponíveis para este produto (Ex: Plano 2 meses - $197).</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelProductModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Produto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Clients CRUD -->
+  <div class="modal-backdrop" id="clientModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title" id="clientModalTitle">Cadastrar Cliente</h3>
+        <button class="modal-close" id="btnCloseClientModal" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="clientForm">
+        <input type="hidden" id="clientId" value="">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="clientName">Nome Completo *</label>
+              <input type="text" class="form-input" id="clientName" required placeholder="Ex: Tiago Silva">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientPhone">Número de Telefone *</label>
+              <input type="tel" class="form-input" id="clientPhone" required placeholder="Ex: +55 (11) 99999-9999">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="clientCountry">País *</label>
+              <select class="form-select" id="clientCountry" required>
+                <option value="" disabled selected>Selecione um país</option>
+                <option value="Brasil">Brasil</option>
+                <option value="Estados Unidos">Estados Unidos</option>
+                <option value="Canadá">Canadá</option>
+                <option value="México">México</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientZip">Código Postal *</label>
+              <input type="text" class="form-input" id="clientZip" required placeholder="Ex: 01001-000">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="clientAddress">Endereço Completo *</label>
+            <input type="text" class="form-input" id="clientAddress" required placeholder="Rua, Número, Bairro, Complemento">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="clientCity">Cidade *</label>
+              <input type="text" class="form-input" id="clientCity" required placeholder="Ex: São Paulo">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientState">Estado *</label>
+              <input type="text" class="form-input" id="clientState" required placeholder="Ex: SP">
+            </div>
+          </div>
+
+          <div class="form-row" style="border-top: 1px solid var(--border-color); padding-top: 18px; margin-top: 10px;">
+            <div class="form-group">
+              <label class="form-label" for="clientProduct">Produto Comprado *</label>
+              <select class="form-select" id="clientProduct" required>
+                <option value="" disabled selected>Selecione um produto</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientPlan">Plano Escolhido *</label>
+              <select class="form-select" id="clientPlan" required disabled>
+                <option value="" disabled selected>Selecione um produto primeiro</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="clientSaleValue">Valor da Venda *</label>
+              <input type="number" step="0.01" class="form-input" id="clientSaleValue" required placeholder="0.00">
+              <span class="form-helper">Valor total da transação.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientAttendant">Atendente Responsável *</label>
+              <select class="form-select" id="clientAttendant" required disabled>
+                <option value="" disabled selected>Selecione o atendente</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" style="border-top: 1px solid var(--border-color); padding-top: 18px;">
+            <div class="form-group">
+              <label class="form-label" for="clientDate">Data do Cadastro *</label>
+              <input type="date" class="form-input" id="clientDate" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="clientStatus">Status / Etiqueta *</label>
+              <select class="form-select" id="clientStatus" required>
+                <option value="Pagamento pendente">Pagamento pendente</option>
+                <option value="Pago">Pago</option>
+                <option value="Golpe">Golpe</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelClientModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Cliente</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Expenses CRUD -->
+  <div class="modal-backdrop" id="expenseModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title" id="expenseModalTitle">Cadastrar Despesa</h3>
+        <button class="modal-close" id="btnCloseExpenseModal" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="expenseForm">
+        <input type="hidden" id="expenseId" value="">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="expenseName">Nome da Despesa *</label>
+            <input type="text" class="form-input" id="expenseName" required placeholder="Ex: Anúncios Facebook Ads">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="expenseCategory">Categoria *</label>
+              <select class="form-select" id="expenseCategory" required>
+                <option value="" disabled selected>Selecione uma categoria</option>
+                <option value="Anúncios">Anúncios</option>
+                <option value="Envio de produtos">Envio de produtos</option>
+                <option value="Custo de produto">Custo de produto</option>
+                <option value="Funcionários">Funcionários</option>
+                <option value="Ferramentas">Ferramentas</option>
+                <option value="Taxas">Taxas</option>
+                <option value="Outros custos">Outros custos</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="expenseValue">Valor *</label>
+              <input type="number" step="0.01" class="form-input" id="expenseValue" required placeholder="0.00">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="expenseDate">Data *</label>
+              <input type="date" class="form-input" id="expenseDate" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="expenseProduct">Produto Relacionado (Opcional)</label>
+              <select class="form-select" id="expenseProduct">
+                <option value="">Nenhum</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="expenseObs">Observações</label>
+            <textarea class="form-textarea" id="expenseObs" placeholder="Informações adicionais sobre o gasto..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelExpenseModal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Despesa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Toast Container for UI Feedback -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Load Database and UI Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
