@@ -175,6 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function syncAutoExpenseForClient(client, source = 'manual') {
     if (!client || !client.id) return;
+    if (authState.user && authState.user.role === 'funcionario') return;
 
     // Find the product name
     const product = state.products.find(p => p.id === client.productId);
@@ -359,6 +360,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Settings
     settingsForm: document.getElementById('settingsForm'),
     settingsSystemName: document.getElementById('settingsSystemName'),
+    settingsEmployeeEditClients: document.getElementById('settingsEmployeeEditClients'),
+    settingsEmployeeSeeAllClients: document.getElementById('settingsEmployeeSeeAllClients'),
     btnResetDatabase: document.getElementById('btnResetDatabase'),
     themeOptLight: document.getElementById('themeOptLight'),
     themeOptDark: document.getElementById('themeOptDark'),
@@ -420,6 +423,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnHeaderLogout: document.getElementById('btnHeaderLogout'),
     mainContainer: document.getElementById('mainContainer'),
     sidebar: document.getElementById('sidebar'),
+
+    // Employee Management Elements
+    searchEmployeesInput: document.getElementById('searchEmployeesInput'),
+    btnOpenAddEmployeeModal: document.getElementById('btnOpenAddEmployeeModal'),
+    employeesTableBody: document.getElementById('employeesTableBody'),
+    employeeModal: document.getElementById('employeeModal'),
+    employeeForm: document.getElementById('employeeForm'),
+    employeeId: document.getElementById('employeeId'),
+    employeeName: document.getElementById('employeeName'),
+    employeeEmail: document.getElementById('employeeEmail'),
+    employeePhone: document.getElementById('employeePhone'),
+    employeePosition: document.getElementById('employeePosition'),
+    employeeStatus: document.getElementById('employeeStatus'),
+    employeePassword: document.getElementById('employeePassword'),
+    employeeConfirmPassword: document.getElementById('employeeConfirmPassword'),
+    btnCancelEmployeeModal: document.getElementById('btnCancelEmployeeModal'),
+    btnCloseEmployeeModal: document.getElementById('btnCloseEmployeeModal'),
+    employeeModalTitle: document.getElementById('employeeModalTitle'),
+    supabaseEmployeeAlert: document.getElementById('supabaseEmployeeAlert'),
+    employeePasswordSection: document.getElementById('employeePasswordSection'),
 
     // General Containers
     toastContainer: document.getElementById('toastContainer')
@@ -512,11 +535,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       showLoginScreen();
       return;
     }
+
+    // Role-based redirect and authorization
+    const role = authState.user.role || 'funcionario';
+    if (role === 'funcionario') {
+      if (viewId === 'dashboard') {
+        viewId = 'employee-dashboard';
+      }
+      const allowedViews = ['employee-dashboard', 'clients'];
+      if (!allowedViews.includes(viewId)) {
+        viewId = 'employee-dashboard';
+      }
+    } else {
+      if (viewId === 'employee-dashboard') {
+        viewId = 'dashboard';
+      }
+    }
+
     state.currentView = viewId;
     
     // Toggle active classes on sidebar
     elements.sidebarItems.forEach(item => {
-      if (item.getAttribute('data-view') === viewId) {
+      const itemView = item.getAttribute('data-view');
+      if (itemView === viewId || (itemView === 'dashboard' && viewId === 'employee-dashboard')) {
         item.classList.add('active');
       } else {
         item.classList.remove('active');
@@ -535,11 +576,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Set page title
     const viewTitleMap = {
       'dashboard': 'Dashboard',
+      'employee-dashboard': 'Painel do Funcionário',
       'clients': 'Gestão de Clientes',
       'products': 'Gestão de Produtos',
       'expenses': 'Gestão de Despesas',
       'reports': 'Desempenho por Produto',
-      'settings': 'Configurações do Sistema'
+      'settings': 'Configurações do Sistema',
+      'employees': 'Gestão de Funcionários'
     };
     elements.currentViewTitle.textContent = viewTitleMap[viewId] || 'Help Vitall';
 
@@ -576,10 +619,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadSettings() {
     state.settings.theme = await window.db.getSetting('theme', 'system');
     state.settings.systemName = await window.db.getSetting('systemName', 'Help Vitall');
+    state.settings.employeeEditClients = await window.db.getSetting('employeeEditClients', true);
+    state.settings.employeeSeeAllClients = await window.db.getSetting('employeeSeeAllClients', true);
 
     // Update UI elements
     elements.sidebarSystemName.textContent = state.settings.systemName;
     elements.settingsSystemName.value = state.settings.systemName;
+    if (elements.settingsEmployeeEditClients) {
+      elements.settingsEmployeeEditClients.checked = state.settings.employeeEditClients;
+    }
+    if (elements.settingsEmployeeSeeAllClients) {
+      elements.settingsEmployeeSeeAllClients.checked = state.settings.employeeSeeAllClients;
+    }
 
     applyTheme(state.settings.theme);
   }
@@ -627,6 +678,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.sidebarSystemName.textContent = systemName;
     elements.settingsSystemName.value = systemName;
     await window.db.setSetting('systemName', systemName);
+
+    if (elements.settingsEmployeeEditClients) {
+      state.settings.employeeEditClients = elements.settingsEmployeeEditClients.checked;
+      await window.db.setSetting('employeeEditClients', state.settings.employeeEditClients);
+    }
+    if (elements.settingsEmployeeSeeAllClients) {
+      state.settings.employeeSeeAllClients = elements.settingsEmployeeSeeAllClients.checked;
+      await window.db.setSetting('employeeSeeAllClients', state.settings.employeeSeeAllClients);
+    }
 
     showToast('Configurações salvas com sucesso!');
   });
@@ -739,9 +799,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadViewData(viewId) {
     // Fetch fresh datasets
     try {
+      const isAdmin = authState.user && authState.user.role === 'admin';
       state.products = await window.db.getAll('products');
       state.clients = await window.db.getAll('clients');
-      state.expenses = await window.db.getAll('expenses');
+      state.expenses = isAdmin ? await window.db.getAll('expenses') : [];
+      state.profiles = isAdmin ? await window.db.getAll('profiles') : state.profiles;
+      state.activityLogs = isAdmin ? await window.db.getAll('employee_activity_logs') : [];
     } catch (err) {
       console.error("Error fetching data from database:", err);
       showToast("Falha ao sincronizar dados com o banco.", "error");
@@ -751,6 +814,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       case 'dashboard':
         populateDashboardFilters();
         updateDashboard();
+        break;
+      case 'employee-dashboard':
+        populateEmployeeDashboardFilters();
+        updateEmployeeDashboard();
         break;
       case 'clients':
         populateProductDropdowns();
@@ -769,6 +836,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         break;
       case 'settings':
         // Handled in loadSettings
+        break;
+      case 'employees':
+        renderEmployeesList();
         break;
     }
   }
@@ -1293,9 +1363,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     tableBody.innerHTML = '';
 
     const searchQuery = elements.searchClientsInput.value.toLowerCase().trim();
+    const isEmployee = authState.user && authState.user.role === 'funcionario';
+    const seeAll = !isEmployee || state.settings.employeeSeeAllClients;
+    const canEdit = !isEmployee || state.settings.employeeEditClients;
+    const canDelete = !isEmployee;
 
     // Filter list
     const filtered = state.clients.filter(client => {
+      // Check ownership restriction for employee
+      if (!seeAll && client.createdById && client.createdById !== authState.user.profileId) {
+        return false;
+      }
+
       const matchesSearch = !searchQuery || 
         client.name.toLowerCase().includes(searchQuery) ||
         client.phone.toLowerCase().includes(searchQuery) ||
@@ -1318,6 +1397,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       else if (client.status === 'Golpe') statusBadge = 'badge-danger';
       else if (client.status === 'Pagamento pendente') statusBadge = 'badge-warning';
 
+      let actionsHtml = '';
+      if (canEdit) {
+        actionsHtml += `
+          <button class="btn btn-secondary btn-sm btn-icon-only btn-edit-client" data-id="${client.id}" title="Editar">
+            <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        `;
+      }
+      if (canDelete) {
+        actionsHtml += `
+          <button class="btn btn-danger btn-sm btn-icon-only btn-delete-client" data-id="${client.id}" title="Excluir">
+            <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        `;
+      }
+
       const row = document.createElement('tr');
       row.innerHTML = `
         <td><strong>${escapeHTML(client.name)}</strong></td>
@@ -1331,12 +1426,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td><span class="badge ${statusBadge}">${escapeHTML(client.status)}</span></td>
         <td>
           <div class="row-actions">
-            <button class="btn btn-secondary btn-sm btn-icon-only btn-edit-client" data-id="${client.id}" title="Editar">
-              <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-            <button class="btn btn-danger btn-sm btn-icon-only btn-delete-client" data-id="${client.id}" title="Excluir">
-              <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            </button>
+            ${actionsHtml}
           </div>
         </td>
       `;
@@ -1559,11 +1649,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.db.put('clients', updatedClient);
         await syncAutoExpenseForClient(updatedClient, 'manual');
         showToast('Cliente editado com sucesso!');
+        await logActivity('EDIT_CLIENT', `Editou cliente ${clientData.name}`, 'clients', state.editingClientId);
+        if (originalClient && originalClient.status !== clientData.status) {
+          const actionType = clientData.status === 'Pago'
+            ? 'MARK_CLIENT_PAID'
+            : clientData.status === 'Golpe'
+              ? 'MARK_CLIENT_SCAM'
+              : 'CLIENT_STATUS_CHANGE';
+          await logActivity(actionType, `Alterou status do cliente ${clientData.name} para ${clientData.status}`, 'clients', state.editingClientId);
+        }
       } else {
+        if (authState.user) {
+          clientData.createdById = authState.user.profileId || authState.user.id || null;
+          clientData.createdByName = authState.user.name || authState.user.email || '';
+        }
+        clientData.creationSource = 'manual';
+
         const newId = await window.db.add('clients', clientData);
         clientData.id = newId;
         await syncAutoExpenseForClient(clientData, 'manual');
         showToast('Cliente cadastrado com sucesso!');
+        await logActivity('ADD_CLIENT', `Cadastrou cliente ${clientData.name}`, 'clients', newId);
       }
       closeClientModal();
       await loadViewData('clients');
@@ -1593,6 +1699,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         await window.db.delete('clients', id);
+        await logActivity('DELETE_CLIENT', `Apagou o cliente ${client ? client.name : id}`, 'clients', id);
 
         if (autoExpenseId) {
           await window.db.delete('expenses', autoExpenseId);
@@ -2735,6 +2842,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           continue;
         }
 
+        if (authState.user) {
+          client.createdById = authState.user.profileId || authState.user.id || null;
+          client.createdByName = authState.user.name || authState.user.email || '';
+        }
+        client.creationSource = 'spreadsheet';
+
         if (client._isDuplicate) {
           if (action === 'ignore') {
             continue; // Skip
@@ -2821,6 +2934,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           warnings: importState.warnings
         }
       });
+      await logActivity('IMPORT_CLIENTS', `Importou ${importedCount} clientes via planilha "${importState.fileName || ''}"`);
+      if (errorCount > 0) {
+        await logActivity('IMPORT_ERROR', `Importação "${importState.fileName || ''}" finalizada com ${errorCount} erro(s): ${firstErrorMessage || 'ver console'}`);
+      }
     } catch (err) {
       console.error('Error logging import summary:', err);
     }
@@ -3413,44 +3530,134 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ==========================================================================
   const supabase = window.db.getSupabaseClient ? window.db.getSupabaseClient() : null;
 
-  async function getRoleForUser(user) {
-    if (!supabase || !user) return 'funcionario';
-
+  async function logActivity(actionType, description, entityType = null, entityId = null) {
+    if (!authState.user) return;
+    
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!error && data?.role) {
-        return data.role;
-      }
+      const logData = {
+        employeeId: authState.user.profileId,
+        actionType: actionType,
+        description: description,
+        entityType: entityType,
+        entityId: entityId ? Number(entityId) : null,
+        createdAt: new Date().toISOString(),
+        ipAddress: '',
+        userAgent: navigator.userAgent
+      };
+      
+      await window.db.add('employee_activity_logs', logData);
     } catch (err) {
-      console.error('Error loading user profile role:', err);
+      console.error('Failed to write activity log:', err);
+    }
+  }
+
+  function applyRolePermissions() {
+    if (!authState.user) return;
+    const role = authState.user.role || 'funcionario';
+
+    // Show/hide sidebar navigation items
+    elements.sidebarItems.forEach(item => {
+      const view = item.getAttribute('data-view');
+      const adminOnlyViews = ['products', 'expenses', 'reports', 'settings', 'employees'];
+      if (adminOnlyViews.includes(view)) {
+        if (role === 'admin') {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      }
+    });
+  }
+
+  async function loadUserProfile(user) {
+    if (!user) return null;
+    
+    // In local dev mode (no Supabase)
+    if (!supabase) {
+      const allProfiles = await window.db.getAll('profiles');
+      let profile = allProfiles.find(p => p.email === user.email);
+      if (!profile) {
+        if (user.role === 'admin') {
+          const newId = await window.db.add('profiles', {
+            auth_user_id: 'local-admin',
+            name: 'Administrador Local',
+            email: 'admin@helpvitall.com',
+            role: 'admin',
+            status: 'active',
+            created_at: new Date().toISOString()
+          });
+          profile = {
+            id: newId,
+            auth_user_id: 'local-admin',
+            name: 'Administrador Local',
+            email: 'admin@helpvitall.com',
+            role: 'admin',
+            status: 'active'
+          };
+        } else {
+          return null;
+        }
+      }
+      return profile;
     }
 
-    return user.app_metadata?.role || 'funcionario';
+    // Supabase mode
+    try {
+      return await window.db.get('profiles', user.id);
+    } catch (err) {
+      console.error('Error loading user profile:', err);
+    }
+    return null;
   }
 
   async function checkSession() {
     if (!supabase) {
-      // Local development bypass: automatically log in as local admin
       console.warn("Supabase not configured. Using local bypass mode for development.");
-      authState.user = { id: 'local-admin', email: 'admin@helpvitall.com', role: 'admin' };
+      const profile = await loadUserProfile({ email: 'admin@helpvitall.com', role: 'admin' });
+      authState.user = { 
+        id: 'local-admin', 
+        email: 'admin@helpvitall.com', 
+        role: profile?.role || 'admin',
+        profileId: profile?.id || 1,
+        name: profile?.name || 'Administrador Local'
+      };
+      applyRolePermissions();
       return true;
     }
 
     try {
       const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       if (data?.session) {
         const user = data.session.user;
-        const role = await getRoleForUser(user);
-        authState.user = { id: user.id, email: user.email, role };
+        const profile = await loadUserProfile(user);
+        
+        if (!profile) {
+          showToast('Nenhum perfil encontrado para esta conta.', 'error');
+          await supabase.auth.signOut();
+          return false;
+        }
+        
+        if (profile.status === 'inactive') {
+          showToast('Esta conta foi desativada pelo administrador.', 'error');
+          await supabase.auth.signOut();
+          return false;
+        }
+
+        authState.user = { 
+          id: user.id, 
+          email: user.email, 
+          role: profile.role,
+          profileId: profile.id,
+          name: profile.name
+        };
+        applyRolePermissions();
+        
+        // Update last activity
+        profile.last_activity_at = new Date().toISOString();
+        await window.db.put('profiles', profile);
+        
         return true;
       }
     } catch (err) {
@@ -3461,14 +3668,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loginUser(email, password) {
+    email = email.trim();
     if (!supabase) {
-      // Local development bypass: allow any login credentials
-      authState.user = { id: 'local-admin', email: email.trim(), role: 'admin' };
+      const allProfiles = await window.db.getAll('profiles');
+      let profile = allProfiles.find(p => p.email.toLowerCase() === email.toLowerCase());
+      
+      if (allProfiles.length === 0 && email.toLowerCase() === 'admin@helpvitall.com') {
+        const adminId = await window.db.add('profiles', {
+          auth_user_id: 'local-admin',
+          name: 'Administrador Local',
+          email: 'admin@helpvitall.com',
+          role: 'admin',
+          status: 'active',
+          created_at: new Date().toISOString()
+        });
+        profile = {
+          id: adminId,
+          authUserId: 'local-admin',
+          name: 'Administrador Local',
+          email: 'admin@helpvitall.com',
+          role: 'admin',
+          status: 'active'
+        };
+      }
+
+      if (!profile) {
+        throw new Error('Usuário não cadastrado localmente.');
+      }
+
+      if (profile.status === 'inactive') {
+        throw new Error('Esta conta foi desativada pelo administrador.');
+      }
+
+      authState.user = { 
+        id: profile.authUserId || 'local-admin', 
+        email: profile.email, 
+        role: profile.role,
+        profileId: profile.id,
+        name: profile.name
+      };
+      
+      applyRolePermissions();
+      
+      profile.last_login_at = new Date().toISOString();
+      profile.last_activity_at = new Date().toISOString();
+      await window.db.put('profiles', profile);
+      
+      await logActivity('LOGIN', `Funcionário ${profile.name} fez login no painel local.`);
+
       return authState.user;
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: email,
       password: password
     });
 
@@ -3477,12 +3729,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const user = data.user;
-    const role = await getRoleForUser(user);
-    authState.user = { id: user.id, email: user.email, role };
+    const profile = await loadUserProfile(user);
+
+    if (!profile) {
+      await supabase.auth.signOut();
+      throw new Error('Nenhum perfil correspondente encontrado no Supabase.');
+    }
+
+    if (profile.status === 'inactive') {
+      await supabase.auth.signOut();
+      throw new Error('Esta conta foi desativada pelo administrador.');
+    }
+
+    authState.user = { 
+      id: user.id, 
+      email: user.email, 
+      role: profile.role,
+      profileId: profile.id,
+      name: profile.name
+    };
+
+    applyRolePermissions();
+
+    profile.last_login_at = new Date().toISOString();
+    profile.last_activity_at = new Date().toISOString();
+    await window.db.put('profiles', profile);
+
+    await logActivity('LOGIN', `Funcionário ${profile.name} fez login no painel.`);
+
     return authState.user;
   }
 
   async function logoutUser() {
+    if (authState.user) {
+      await logActivity('LOGOUT', `Funcionário ${authState.user.name} saiu do painel.`);
+    }
     if (supabase) {
       try {
         await supabase.auth.signOut();
@@ -3547,15 +3828,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 1. Load configurations
     await loadSettings();
+    applyRolePermissions();
 
     // 2. Fetch all collections
+    const isAdmin = authState.user.role === 'admin';
     state.products = await window.db.getAll('products');
     state.clients = await window.db.getAll('clients');
-    state.expenses = await window.db.getAll('expenses');
+    state.expenses = isAdmin ? await window.db.getAll('expenses') : [];
     
     // Load and seed product cost rules if needed
-    state.productCostRules = await window.db.getAll('product_cost_rules');
-    if (state.productCostRules.length === 0) {
+    state.productCostRules = isAdmin ? await window.db.getAll('product_cost_rules') : [];
+    if (isAdmin && state.productCostRules.length === 0) {
       for (const rule of DEFAULT_COST_RULES) {
         await window.db.add('product_cost_rules', rule);
       }
@@ -3564,6 +3847,547 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Render default view
     navigateTo('dashboard');
+  }
+
+  // ==========================================================================
+  // EMPLOYEE MANAGEMENT (ADMIN ONLY)
+  // ==========================================================================
+  let editingEmployeeId = null;
+
+  function openEmployeeModal(id = null) {
+    editingEmployeeId = id;
+    elements.employeeForm.reset();
+    
+    if (supabase) {
+      elements.supabaseEmployeeAlert.style.display = 'block';
+      elements.employeePasswordSection.style.display = 'none';
+      elements.employeePassword.required = false;
+      elements.employeeConfirmPassword.required = false;
+    } else {
+      elements.supabaseEmployeeAlert.style.display = 'none';
+      elements.employeePasswordSection.style.display = 'flex';
+      elements.employeePassword.required = !id;
+      elements.employeeConfirmPassword.required = !id;
+    }
+
+    if (id) {
+      elements.employeeModalTitle.textContent = 'Editar Funcionário';
+      const profile = state.profiles.find(p => String(p.id) === String(id));
+      if (profile) {
+        elements.employeeName.value = profile.name;
+        elements.employeeEmail.value = profile.email;
+        elements.employeePhone.value = profile.phone || '';
+        elements.employeePosition.value = profile.position || '';
+        elements.employeeStatus.value = profile.status || 'active';
+      }
+    } else {
+      elements.employeeModalTitle.textContent = 'Cadastrar Funcionário';
+    }
+
+    elements.employeeModal.classList.add('active');
+  }
+
+  function closeEmployeeModal() {
+    elements.employeeModal.classList.remove('active');
+    editingEmployeeId = null;
+  }
+
+  async function toggleEmployeeStatus(id) {
+    const profile = state.profiles.find(p => String(p.id) === String(id));
+    if (!profile) return;
+    
+    if (profile.role === 'admin') {
+      showToast('Não é possível desativar uma conta de administrador.', 'error');
+      return;
+    }
+
+    const newStatus = profile.status === 'active' ? 'inactive' : 'active';
+    const actionLabel = newStatus === 'active' ? 'ativado' : 'desativado';
+
+    try {
+      profile.status = newStatus;
+      await window.db.put('profiles', profile);
+      showToast(`Funcionário ${actionLabel} com sucesso!`);
+      await logActivity('STATUS_CHANGE', `Alterou status do funcionário ${profile.name} para ${newStatus}`);
+      await loadViewData('employees');
+    } catch (err) {
+      showToast('Erro ao atualizar status do funcionário.', 'error');
+    }
+  }
+
+  function renderEmployeesList() {
+    const tableBody = elements.employeesTableBody;
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+
+    const searchQuery = elements.searchEmployeesInput.value.toLowerCase().trim();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const filtered = state.profiles.filter(profile => {
+      const matchesSearch = !searchQuery ||
+        profile.name.toLowerCase().includes(searchQuery) ||
+        profile.email.toLowerCase().includes(searchQuery) ||
+        (profile.position && profile.position.toLowerCase().includes(searchQuery));
+      return matchesSearch;
+    });
+
+    if (filtered.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="8" class="table-empty">Nenhum funcionário cadastrado</td></tr>`;
+      renderEmployeeActivityLogs();
+      return;
+    }
+
+    filtered.forEach(profile => {
+      const manualCount = state.clients.filter(c => {
+        if (!c.date) return false;
+        const cDate = c.date.split('T')[0];
+        return String(c.createdById) === String(profile.id) && c.creationSource === 'manual' && cDate === todayStr;
+      }).length;
+
+      const importCount = state.clients.filter(c => {
+        if (!c.date) return false;
+        const cDate = c.date.split('T')[0];
+        return String(c.createdById) === String(profile.id) && c.creationSource === 'spreadsheet' && cDate === todayStr;
+      }).length;
+
+      const statusBadge = profile.status === 'active' ? 'badge-success' : 'badge-danger';
+      const statusLabel = profile.status === 'active' ? 'Ativo' : 'Inativo';
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>
+          <strong>${escapeHTML(profile.name)}</strong>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHTML(profile.email)}</div>
+        </td>
+        <td>
+          <div>${escapeHTML(profile.position || 'Funcionário')}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHTML(profile.phone || '-')}</div>
+        </td>
+        <td><span class="badge ${statusBadge}">${statusLabel}</span></td>
+        <td>${profile.last_login_at ? formatDateDisplay(profile.last_login_at.split('T')[0]) + ' ' + new Date(profile.last_login_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Nunca'}</td>
+        <td>${profile.last_activity_at ? formatDateDisplay(profile.last_activity_at.split('T')[0]) + ' ' + new Date(profile.last_activity_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Nunca'}</td>
+        <td><span class="badge badge-neutral">${manualCount}</span></td>
+        <td><span class="badge badge-neutral">${importCount}</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="btn btn-secondary btn-sm btn-icon-only btn-edit-employee" data-id="${profile.id}" title="Editar">
+              <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn btn-sm btn-icon-only ${profile.status === 'active' ? 'btn-danger' : 'btn-success'} btn-toggle-employee" data-id="${profile.id}" title="${profile.status === 'active' ? 'Desativar' : 'Ativar'}">
+              ${profile.status === 'active' ? 
+                `<svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>` : 
+                `<svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`
+              }
+            </button>
+          </div>
+        </td>
+      `;
+      tableBody.appendChild(row);
+    });
+
+    tableBody.querySelectorAll('.btn-edit-employee').forEach(btn => {
+      btn.addEventListener('click', () => openEmployeeModal(btn.getAttribute('data-id')));
+    });
+
+    tableBody.querySelectorAll('.btn-toggle-employee').forEach(btn => {
+      btn.addEventListener('click', () => toggleEmployeeStatus(btn.getAttribute('data-id')));
+    });
+
+    renderEmployeeActivityLogs();
+  }
+
+  function getActivityLabel(actionType) {
+    const labels = {
+      LOGIN: 'Login',
+      LOGOUT: 'Logout',
+      ADD_CLIENT: 'Cliente criado',
+      EDIT_CLIENT: 'Cliente editado',
+      DELETE_CLIENT: 'Cliente apagado',
+      MARK_CLIENT_PAID: 'Cliente pago',
+      MARK_CLIENT_SCAM: 'Cliente golpe',
+      CLIENT_STATUS_CHANGE: 'Status alterado',
+      IMPORT_CLIENTS: 'Planilha importada',
+      IMPORT_ERROR: 'Erro na importação',
+      STATUS_CHANGE: 'Status funcionário',
+      CREATE_EMPLOYEE: 'Funcionário criado',
+      EDIT_EMPLOYEE: 'Funcionário editado'
+    };
+    return labels[actionType] || actionType || '-';
+  }
+
+  function renderEmployeeActivityLogs() {
+    const tableBody = document.getElementById('employeeActivityLogsTableBody');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+    const logs = (state.activityLogs || [])
+      .slice()
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, 50);
+
+    if (logs.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma atividade registrada</td></tr>';
+      return;
+    }
+
+    logs.forEach(log => {
+      const profile = state.profiles.find(p => String(p.id) === String(log.employeeId));
+      const logDate = log.createdAt ? new Date(log.createdAt) : null;
+      const dateLabel = logDate && !isNaN(logDate)
+        ? `${formatDateDisplay(logDate.toISOString().split('T')[0])} ${logDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        : '-';
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${dateLabel}</td>
+        <td>${escapeHTML(profile?.name || profile?.email || 'Sistema')}</td>
+        <td><span class="badge badge-neutral">${escapeHTML(getActivityLabel(log.actionType))}</span></td>
+        <td>${escapeHTML(log.description || '-')}</td>
+        <td>${escapeHTML(log.entityType || '-')}</td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
+
+  elements.employeeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const name = elements.employeeName.value.trim();
+    const email = elements.employeeEmail.value.trim().toLowerCase();
+    const phone = elements.employeePhone.value.trim();
+    const position = elements.employeePosition.value.trim();
+    const status = elements.employeeStatus.value;
+    const password = elements.employeePassword.value;
+    const confirmPassword = elements.employeeConfirmPassword.value;
+
+    if (!supabase && !editingEmployeeId) {
+      if (password.length < 6) {
+        showToast('A senha deve conter no mínimo 6 caracteres.', 'error');
+        return;
+      }
+      if (password !== confirmPassword) {
+        showToast('As senhas não coincidem.', 'error');
+        return;
+      }
+    }
+
+    try {
+      if (editingEmployeeId) {
+        const originalProfile = state.profiles.find(p => String(p.id) === String(editingEmployeeId));
+        const updatedProfile = {
+          ...originalProfile,
+          name,
+          email,
+          phone,
+          position,
+          status,
+          updated_at: new Date().toISOString()
+        };
+        await window.db.put('profiles', updatedProfile);
+        showToast('Funcionário atualizado com sucesso!');
+        await logActivity('EDIT_EMPLOYEE', `Editou os dados do funcionário ${name}`);
+      } else {
+        const emailExists = state.profiles.some(p => p.email.toLowerCase() === email);
+        if (emailExists) {
+          const existingProfile = state.profiles.find(p => p.email.toLowerCase() === email);
+          await window.db.put('profiles', {
+            ...existingProfile,
+            name,
+            email,
+            phone,
+            position,
+            status,
+            role: existingProfile.role || 'funcionario',
+            updatedAt: new Date().toISOString()
+          });
+          showToast('Perfil do funcionário atualizado com sucesso!');
+          await logActivity('EDIT_EMPLOYEE', `Atualizou o perfil do funcionário ${name}`);
+          closeEmployeeModal();
+          await loadViewData('employees');
+          return;
+        }
+
+        if (supabase) {
+          showToast('Crie primeiro o usuário em Supabase > Authentication > Users. Depois volte aqui para editar o perfil criado automaticamente.', 'error');
+          return;
+        }
+
+        const profileData = {
+          name,
+          email,
+          phone,
+          position,
+          status,
+          role: 'funcionario',
+          created_at: new Date().toISOString()
+        };
+
+        if (!supabase) {
+          profileData.auth_user_id = 'local-' + Math.random().toString(36).substr(2, 9);
+          profileData.password = password; 
+        }
+
+        const newId = await window.db.add('profiles', profileData);
+        showToast('Funcionário cadastrado com sucesso!');
+        await logActivity('CREATE_EMPLOYEE', `Cadastrou o funcionário ${name}`);
+      }
+
+      closeEmployeeModal();
+      await loadViewData('employees');
+    } catch (err) {
+      showToast('Erro ao salvar funcionário.', 'error');
+      console.error(err);
+    }
+  });
+
+  if (elements.btnOpenAddEmployeeModal) {
+    elements.btnOpenAddEmployeeModal.addEventListener('click', () => openEmployeeModal());
+  }
+  if (elements.btnCancelEmployeeModal) {
+    elements.btnCancelEmployeeModal.addEventListener('click', closeEmployeeModal);
+  }
+  if (elements.btnCloseEmployeeModal) {
+    elements.btnCloseEmployeeModal.addEventListener('click', closeEmployeeModal);
+  }
+  if (elements.searchEmployeesInput) {
+    elements.searchEmployeesInput.addEventListener('input', renderEmployeesList);
+  }
+
+  // ==========================================================================
+  // EMPLOYEE DASHBOARD (EMPLOYEE ONLY)
+  // ==========================================================================
+  function populateEmployeeDashboardFilters() {
+    const filter = document.getElementById('employeeDashboardPeriodFilter');
+    const startInput = document.getElementById('employeeDashboardStartDate');
+    const endInput = document.getElementById('employeeDashboardEndDate');
+    const wrapper = document.getElementById('employeeDashboardCustomDateRangeWrapper');
+
+    if (!filter || !startInput || !endInput || !wrapper) return;
+
+    if (!startInput.value || !endInput.value) {
+      const today = new Date();
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(today.getDate() - 7);
+      
+      startInput.value = sevenDaysAgo.toISOString().split('T')[0];
+      endInput.value = today.toISOString().split('T')[0];
+    }
+  }
+
+  const empFilter = document.getElementById('employeeDashboardPeriodFilter');
+  if (empFilter) {
+    empFilter.addEventListener('change', (e) => {
+      const wrapper = document.getElementById('employeeDashboardCustomDateRangeWrapper');
+      if (wrapper) {
+        wrapper.style.display = e.target.value === 'custom' ? 'flex' : 'none';
+      }
+      updateEmployeeDashboard();
+    });
+  }
+  const empStart = document.getElementById('employeeDashboardStartDate');
+  if (empStart) empStart.addEventListener('change', updateEmployeeDashboard);
+  const empEnd = document.getElementById('employeeDashboardEndDate');
+  if (empEnd) empEnd.addEventListener('change', updateEmployeeDashboard);
+
+  function updateEmployeeDashboard() {
+    const periodFilter = document.getElementById('employeeDashboardPeriodFilter')?.value || '7days';
+    const startInput = document.getElementById('employeeDashboardStartDate')?.value;
+    const endInput = document.getElementById('employeeDashboardEndDate')?.value;
+
+    let startDate, endDate;
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    if (periodFilter === 'today') {
+      startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(today);
+    } else if (periodFilter === 'yesterday') {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date();
+      endDate.setDate(endDate.getDate() - 1);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (periodFilter === '7days') {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(today);
+    } else if (periodFilter === '14days') {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 14);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(today);
+    } else if (periodFilter === '30days') {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(today);
+    } else if (periodFilter === 'custom' && startInput && endInput) {
+      startDate = new Date(startInput + 'T00:00:00');
+      endDate = new Date(endInput + 'T23:59:59');
+    } else {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(today);
+    }
+
+    const seeAll = state.settings.employeeSeeAllClients;
+    const employeeClients = state.clients.filter(c => {
+      if (!seeAll && c.createdById && c.createdById !== authState.user.profileId) {
+        return false;
+      }
+      return true;
+    });
+
+    const periodClients = employeeClients.filter(c => {
+      if (!c.date) return false;
+      const cDate = new Date(c.date + 'T12:00:00');
+      return cDate >= startDate && cDate <= endDate;
+    });
+
+    const totalClients = periodClients.length;
+    document.getElementById('empKpiTotalClientsVal').textContent = totalClients;
+
+    const paidClients = periodClients.filter(c => c.status === 'Pago');
+    const paidCount = paidClients.length;
+    document.getElementById('empKpiPaidClientsVal').textContent = paidCount;
+    const conversionRate = totalClients > 0 ? ((paidCount / totalClients) * 100).toFixed(1) : '0.0';
+    document.getElementById('empKpiPaidClientsSub').textContent = `${conversionRate}% conversão`;
+
+    const pendingCount = periodClients.filter(c => c.status === 'Pagamento pendente').length;
+    document.getElementById('empKpiPendingClientsVal').textContent = pendingCount;
+
+    const scamCount = periodClients.filter(c => c.status === 'Golpe').length;
+    document.getElementById('empKpiScamClientsVal').textContent = scamCount;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const addedToday = employeeClients.filter(c => {
+      if (!c.date) return false;
+      const cDate = c.date.split('T')[0];
+      return cDate === todayStr && c.creationSource === 'manual';
+    }).length;
+    const importedToday = employeeClients.filter(c => {
+      if (!c.date) return false;
+      const cDate = c.date.split('T')[0];
+      return cDate === todayStr && c.creationSource === 'spreadsheet';
+    }).length;
+
+    document.getElementById('empKpiAddedTodayVal').textContent = addedToday;
+    document.getElementById('empKpiImportedTodayVal').textContent = importedToday;
+
+    const productPerformance = {};
+    periodClients.forEach(c => {
+      const prodId = c.productId;
+      if (!productPerformance[prodId]) {
+        const prod = state.products.find(p => String(p.id) === String(prodId));
+        productPerformance[prodId] = {
+          name: prod ? prod.name : 'Desconhecido',
+          sales: 0,
+          revenue: 0,
+          total: 0
+        };
+      }
+      productPerformance[prodId].total += 1;
+      if (c.status === 'Pago') {
+        productPerformance[prodId].sales += 1;
+        productPerformance[prodId].revenue += Number(c.saleValue) || 0;
+      }
+    });
+
+    const prodTableBody = document.getElementById('empDashboardProductTableBody');
+    if (prodTableBody) {
+      prodTableBody.innerHTML = '';
+      const prodRows = Object.values(productPerformance).sort((a, b) => b.revenue - a.revenue);
+      if (prodRows.length === 0) {
+        prodTableBody.innerHTML = '<tr><td colspan="4" class="table-empty">Sem dados</td></tr>';
+      } else {
+        prodRows.forEach(row => {
+          const conv = row.total > 0 ? ((row.sales / row.total) * 100).toFixed(0) : '0';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${escapeHTML(row.name)}</strong></td>
+            <td>${row.sales}</td>
+            <td>${formatCurrency(row.revenue)}</td>
+            <td>${conv}%</td>
+          `;
+          prodTableBody.appendChild(tr);
+        });
+      }
+    }
+
+    const attendantPerformance = {};
+    periodClients.forEach(c => {
+      const attName = c.attendant || 'Sem Atendente';
+      if (!attendantPerformance[attName]) {
+        attendantPerformance[attName] = {
+          name: attName,
+          sales: 0,
+          revenue: 0,
+          total: 0
+        };
+      }
+      attendantPerformance[attName].total += 1;
+      if (c.status === 'Pago') {
+        attendantPerformance[attName].sales += 1;
+        attendantPerformance[attName].revenue += Number(c.saleValue) || 0;
+      }
+    });
+
+    const attTableBody = document.getElementById('empDashboardAttendantTableBody');
+    if (attTableBody) {
+      attTableBody.innerHTML = '';
+      const attRows = Object.values(attendantPerformance).sort((a, b) => b.revenue - a.revenue);
+      if (attRows.length === 0) {
+        attTableBody.innerHTML = '<tr><td colspan="4" class="table-empty">Sem dados</td></tr>';
+      } else {
+        attRows.forEach(row => {
+          const conv = row.total > 0 ? ((row.sales / row.total) * 100).toFixed(0) : '0';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${escapeHTML(row.name)}</strong></td>
+            <td>${row.sales}</td>
+            <td>${formatCurrency(row.revenue)}</td>
+            <td>${conv}%</td>
+          `;
+          attTableBody.appendChild(tr);
+        });
+      }
+    }
+
+    const recentTableBody = document.getElementById('empDashboardRecentClientsTableBody');
+    if (recentTableBody) {
+      recentTableBody.innerHTML = '';
+      const sorted = [...periodClients].sort((a, b) => {
+        return new Date(b.date + 'T12:00:00') - new Date(a.date + 'T12:00:00');
+      }).slice(0, 5);
+
+      if (sorted.length === 0) {
+        recentTableBody.innerHTML = '<tr><td colspan="6" class="table-empty">Nenhum cliente cadastrado</td></tr>';
+      } else {
+        sorted.forEach(c => {
+          const prod = state.products.find(p => String(p.id) === String(c.productId));
+          const prodName = prod ? prod.name : 'Produto Desconhecido';
+          
+          let statusBadge = 'badge-neutral';
+          if (c.status === 'Pago') statusBadge = 'badge-success';
+          else if (c.status === 'Golpe') statusBadge = 'badge-danger';
+          else if (c.status === 'Pagamento pendente') statusBadge = 'badge-warning';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${escapeHTML(c.name)}</strong></td>
+            <td>${escapeHTML(prodName)}</td>
+            <td>${formatCurrency(c.saleValue)}</td>
+            <td>${escapeHTML(c.attendant)}</td>
+            <td><span class="badge ${statusBadge}">${escapeHTML(c.status)}</span></td>
+            <td>${formatDateDisplay(c.date)}</td>
+          `;
+          recentTableBody.appendChild(tr);
+        });
+      }
+    }
   }
 
   // ==========================================================================

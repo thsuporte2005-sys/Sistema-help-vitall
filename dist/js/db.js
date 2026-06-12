@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'HelpVitallDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const SUPABASE_CONFIG = window.HELP_VITALL_ENV || {};
 const SUPABASE_URL = SUPABASE_CONFIG.NEXT_PUBLIC_SUPABASE_URL || SUPABASE_CONFIG.SUPABASE_URL || '';
@@ -16,7 +16,9 @@ const TABLE_MAP = {
   expenses: 'expenses',
   settings: 'settings',
   spreadsheet_imports: 'spreadsheet_imports',
-  product_cost_rules: 'product_cost_rules'
+  product_cost_rules: 'product_cost_rules',
+  profiles: 'profiles',
+  employee_activity_logs: 'employee_activity_logs'
 };
 
 function removeEmptyId(item) {
@@ -67,7 +69,40 @@ function toDbRow(storeName, item) {
       sent: Boolean(clean.sent),
       delivered: Boolean(clean.delivered),
       paid: clean.paid !== undefined ? Boolean(clean.paid) : clean.status === 'Pago',
-      payment_method: clean.paymentMethod || ''
+      payment_method: clean.paymentMethod || '',
+      created_by_id: clean.createdById || null,
+      created_by_name: clean.createdByName || '',
+      creation_source: clean.creationSource || 'manual'
+    };
+  }
+
+  if (storeName === 'profiles') {
+    return {
+      id: clean.id,
+      full_name: clean.fullName || clean.full_name || clean.name || '',
+      email: clean.email || '',
+      role: clean.role || 'funcionario',
+      status: clean.status || 'active',
+      phone: clean.phone || '',
+      position: clean.position || '',
+      created_at: clean.createdAt || clean.created_at || new Date().toISOString(),
+      updated_at: clean.updatedAt || clean.updated_at || new Date().toISOString(),
+      last_login_at: clean.lastLoginAt || clean.last_login_at || null,
+      last_activity_at: clean.lastActivityAt || clean.last_activity_at || null
+    };
+  }
+
+  if (storeName === 'employee_activity_logs') {
+    return {
+      id: clean.id,
+      employee_id: clean.employeeId || null,
+      action_type: clean.actionType || '',
+      description: clean.description || '',
+      entity_type: clean.entityType || '',
+      entity_id: clean.entityId || null,
+      created_at: clean.createdAt || new Date().toISOString(),
+      ip_address: clean.ipAddress || '',
+      user_agent: clean.userAgent || ''
     };
   }
 
@@ -172,7 +207,42 @@ function fromDbRow(storeName, row) {
       sent: Boolean(row.sent),
       delivered: Boolean(row.delivered),
       paid: Boolean(row.paid),
-      paymentMethod: row.payment_method || ''
+      paymentMethod: row.payment_method || '',
+      createdById: row.created_by_id || null,
+      createdByName: row.created_by_name || '',
+      creationSource: row.creation_source || 'manual'
+    };
+  }
+
+  if (storeName === 'profiles') {
+    return {
+      id: row.id,
+      authUserId: row.id || null,
+      name: row.full_name || row.name || '',
+      fullName: row.full_name || row.name || '',
+      email: row.email || '',
+      role: row.role || 'funcionario',
+      status: row.status || 'active',
+      phone: row.phone || '',
+      position: row.position || '',
+      createdAt: row.created_at || '',
+      updatedAt: row.updated_at || '',
+      lastLoginAt: row.last_login_at || '',
+      lastActivityAt: row.last_activity_at || ''
+    };
+  }
+
+  if (storeName === 'employee_activity_logs') {
+    return {
+      id: row.id,
+      employeeId: row.employee_id || null,
+      actionType: row.action_type || '',
+      description: row.description || '',
+      entityType: row.entity_type || '',
+      entityId: row.entity_id || null,
+      createdAt: row.created_at || '',
+      ipAddress: row.ip_address || '',
+      userAgent: row.user_agent || ''
     };
   }
 
@@ -310,6 +380,14 @@ class HelpVitallDB {
 
         if (!db.objectStoreNames.contains('product_cost_rules')) {
           db.createObjectStore('product_cost_rules', { keyPath: 'id', autoIncrement: true });
+        }
+
+        if (!db.objectStoreNames.contains('profiles')) {
+          db.createObjectStore('profiles', { keyPath: 'id', autoIncrement: true });
+        }
+
+        if (!db.objectStoreNames.contains('employee_activity_logs')) {
+          db.createObjectStore('employee_activity_logs', { keyPath: 'id', autoIncrement: true });
         }
       };
     });
@@ -482,7 +560,7 @@ class HelpVitallDB {
       throw new Error('A limpeza total pelo painel foi bloqueada para proteger dados reais no Supabase.');
     }
 
-    const stores = ['products', 'clients', 'expenses', 'settings', 'spreadsheet_imports', 'product_cost_rules'];
+    const stores = ['products', 'clients', 'expenses', 'settings', 'spreadsheet_imports', 'product_cost_rules', 'profiles', 'employee_activity_logs'];
     for (const storeName of stores) {
       await new Promise((resolve, reject) => {
         const transaction = this.db.transaction(storeName, 'readwrite');
