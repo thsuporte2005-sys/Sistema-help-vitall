@@ -12,12 +12,221 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error(err);
   }
 
+  const DEFAULT_COST_RULES = [
+    // VitalMax Rules
+    {
+      productName: 'VitalMax',
+      formulaCode: 'ME FS-MALE-60-150BBBC',
+      bottleQuantity: 1,
+      costPerBottle: 3.21,
+      bottlesCost: 3.21,
+      weight: '3.5 oz',
+      packagingCost: 0.15,
+      handlingCost: 0.75,
+      estimatedShipping: 4.36,
+      estimatedTotalCost: 8.47,
+      averageCost: 8.29,
+      active: true
+    },
+    {
+      productName: 'VitalMax',
+      formulaCode: 'ME FS-MALE-60-150BBBC',
+      bottleQuantity: 3,
+      costPerBottle: 3.21,
+      bottlesCost: 9.63,
+      weight: '10 oz',
+      packagingCost: 0.15,
+      handlingCost: 1.25,
+      estimatedShipping: 5.62,
+      estimatedTotalCost: 16.65,
+      averageCost: 15.21,
+      active: true
+    },
+    {
+      productName: 'VitalMax',
+      formulaCode: 'ME FS-MALE-60-150BBBC',
+      bottleQuantity: 6,
+      costPerBottle: 3.21,
+      bottlesCost: 19.26,
+      weight: '1.25 lbs',
+      packagingCost: 0.15,
+      handlingCost: 2.00,
+      estimatedShipping: 8.91,
+      estimatedTotalCost: 30.32,
+      averageCost: 25.59,
+      active: true
+    },
+    {
+      productName: 'VitalMax',
+      formulaCode: 'ME FS-MALE-60-150BBBC',
+      bottleQuantity: 9,
+      costPerBottle: 3.21,
+      bottlesCost: 28.89,
+      weight: '1.875 lbs',
+      packagingCost: 0.15,
+      handlingCost: 2.75,
+      estimatedShipping: 8.91,
+      estimatedTotalCost: 40.70,
+      averageCost: 35.97,
+      active: true
+    },
+    {
+      productName: 'VitalMax',
+      formulaCode: 'ME FS-MALE-60-150BBBC',
+      bottleQuantity: 12,
+      costPerBottle: 3.21,
+      bottlesCost: 38.52,
+      weight: '2.5 lbs',
+      packagingCost: 0.15,
+      handlingCost: 3.50,
+      estimatedShipping: 10.42,
+      estimatedTotalCost: 52.59,
+      averageCost: 46.35,
+      active: true
+    },
+    // ArtroFlex Rules
+    {
+      productName: 'ArtroFlex',
+      formulaCode: 'Turmeric FS-TURMERIC-30-150WBWC',
+      bottleQuantity: 1,
+      costPerBottle: 3.50,
+      bottlesCost: 3.50,
+      weight: '3.5 oz',
+      packagingCost: 0.15,
+      handlingCost: 0.75,
+      estimatedShipping: 4.36,
+      estimatedTotalCost: 8.76,
+      averageCost: 8.58,
+      active: true
+    },
+    {
+      productName: 'ArtroFlex',
+      formulaCode: 'Turmeric FS-TURMERIC-30-150WBWC',
+      bottleQuantity: 3,
+      costPerBottle: 3.50,
+      bottlesCost: 10.50,
+      weight: '10 oz',
+      packagingCost: 0.15,
+      handlingCost: 1.25,
+      estimatedShipping: 5.62,
+      estimatedTotalCost: 17.52,
+      averageCost: 16.08,
+      active: true
+    },
+    {
+      productName: 'ArtroFlex',
+      formulaCode: 'Turmeric FS-TURMERIC-30-150WBWC',
+      bottleQuantity: 6,
+      costPerBottle: 3.50,
+      bottlesCost: 21.00,
+      weight: '1.25 lbs',
+      packagingCost: 0.15,
+      handlingCost: 2.00,
+      estimatedShipping: 8.91,
+      estimatedTotalCost: 32.06,
+      averageCost: 27.33,
+      active: true
+    },
+    {
+      productName: 'ArtroFlex',
+      formulaCode: 'Turmeric FS-TURMERIC-30-150WBWC',
+      bottleQuantity: 9,
+      costPerBottle: 3.50,
+      bottlesCost: 31.50,
+      weight: '1.875 lbs',
+      packagingCost: 0.15,
+      handlingCost: 2.75,
+      estimatedShipping: 8.91,
+      estimatedTotalCost: 43.31,
+      averageCost: 38.58,
+      active: true
+    },
+    {
+      productName: 'ArtroFlex',
+      formulaCode: 'Turmeric FS-TURMERIC-30-150WBWC',
+      bottleQuantity: 12,
+      costPerBottle: 3.50,
+      bottlesCost: 42.00,
+      weight: '2.5 lbs',
+      packagingCost: 0.15,
+      handlingCost: 3.50,
+      estimatedShipping: 10.42,
+      estimatedTotalCost: 56.07,
+      averageCost: 49.83,
+      active: true
+    }
+  ];
+
+  function normalizeProductName(name) {
+    return normalizeImportText(name).replace(/\s+/g, '');
+  }
+
+  function findCostRule(productName, bottles) {
+    if (!productName) return null;
+    const cleanProd = normalizeProductName(productName);
+    const count = Number(bottles) || 0;
+    const rules = state.productCostRules || [];
+    let rule = rules.find(r => normalizeProductName(r.productName) === cleanProd && Number(r.bottleQuantity) === count && r.active);
+    if (!rule) {
+      rule = DEFAULT_COST_RULES.find(r => normalizeProductName(r.productName) === cleanProd && Number(r.bottleQuantity) === count);
+    }
+    return rule;
+  }
+
+  async function syncAutoExpenseForClient(client, source = 'manual') {
+    if (!client || !client.id) return;
+
+    // Find the product name
+    const product = state.products.find(p => p.id === client.productId);
+    const productName = product ? product.name : (client.productName || '');
+    
+    // Find the cost rule
+    const rule = findCostRule(productName, client.bottles);
+
+    // Find if there is an existing auto expense for this client
+    let existingExpense = state.expenses.find(e => 
+      e.clientId === client.id || 
+      (e.observation && e.observation.includes(`[AUTO_EXPENSE_CLIENT_ID:${client.id}]`))
+    );
+
+    if (!rule) {
+      if (existingExpense) {
+        await window.db.delete('expenses', existingExpense.id);
+        state.expenses = state.expenses.filter(e => e.id !== existingExpense.id);
+      }
+      return;
+    }
+
+    const expenseData = {
+      id: existingExpense ? existingExpense.id : undefined,
+      name: `Custo automático do pedido - Cliente: ${client.name}`,
+      category: 'Custo do pedido',
+      value: rule.estimatedTotalCost,
+      date: client.paymentDate || client.date || new Date().toISOString().slice(0, 10),
+      productId: client.productId,
+      observation: `Custo automático do pedido - Cliente: ${client.name} | Potes: ${client.bottles} | Custo dos potes: ${rule.bottlesCost} | Embalagem: ${rule.packagingCost} | Handling: ${rule.handlingCost} | Envio: ${rule.estimatedShipping} [AUTO_EXPENSE_CLIENT_ID:${client.id}]`,
+      clientId: client.id,
+      autoGenerated: true,
+      source: source
+    };
+
+    if (existingExpense) {
+      await window.db.put('expenses', expenseData);
+    } else {
+      const newId = await window.db.add('expenses', expenseData);
+      expenseData.id = newId;
+    }
+
+    state.expenses = await window.db.getAll('expenses');
+  }
+
   // State Management
   const state = {
     currentView: 'dashboard',
     products: [],
     clients: [],
     expenses: [],
+    productCostRules: [],
     settings: {
       theme: 'system',
       systemName: 'Help Vitall'
@@ -89,6 +298,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clientProduct: document.getElementById('clientProduct'),
     clientPlan: document.getElementById('clientPlan'),
     clientSaleValue: document.getElementById('clientSaleValue'),
+    clientBottles: document.getElementById('clientBottles'),
     clientAttendant: document.getElementById('clientAttendant'),
     clientDate: document.getElementById('clientDate'),
     clientStatus: document.getElementById('clientStatus'),
@@ -123,6 +333,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Expense Page & CRUD
     searchExpensesInput: document.getElementById('searchExpensesInput'),
+    filterExpenseType: document.getElementById('filterExpenseType'),
+    filterExpenseProduct: document.getElementById('filterExpenseProduct'),
+    filterExpenseClient: document.getElementById('filterExpenseClient'),
+    filterExpenseAttendant: document.getElementById('filterExpenseAttendant'),
+    filterExpenseBottles: document.getElementById('filterExpenseBottles'),
+    filterExpensePeriod: document.getElementById('filterExpensePeriod'),
+    filterExpenseStartDate: document.getElementById('filterExpenseStartDate'),
+    filterExpenseEndDate: document.getElementById('filterExpenseEndDate'),
     btnOpenAddExpenseModal: document.getElementById('btnOpenAddExpenseModal'),
     expensesTableBody: document.getElementById('expensesTableBody'),
     expenseModal: document.getElementById('expenseModal'),
@@ -543,6 +761,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         break;
       case 'expenses':
         populateProductDropdowns();
+        populateExpenseFilters();
         renderExpensesList();
         break;
       case 'reports':
@@ -914,10 +1133,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
 
-      // Gastos relacionados = linked expenses + (unit cost * paid clients count)
-      const directExpenses = prodExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0);
-      const costOfGoodsSold = countPago * (Number(prod.cost) || 0);
-      const gastosRelacionados = directExpenses + costOfGoodsSold;
+      // Automatic order costs are stored as expenses, so this must not add the old fixed product cost again.
+      const gastosRelacionados = prodExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0);
 
       const lucroLiquido = faturamento - gastosRelacionados - prejuizos;
 
@@ -1018,9 +1235,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
 
-      const directExpenses = prodExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0);
-      const costOfGoodsSold = countPago * (Number(prod.cost) || 0);
-      const gastosRelacionados = directExpenses + costOfGoodsSold;
+      const gastosRelacionados = prodExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0);
 
       const lucroLiquido = faturamento - gastosRelacionados - prejuizos;
 
@@ -1256,6 +1471,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateClientModalProductDetails(client.productId, client.planName, client.attendant);
 
         elements.clientSaleValue.value = Number(client.saleValue).toFixed(2);
+        elements.clientBottles.value = Number(client.bottles) || 1;
         elements.clientDate.value = client.date;
         elements.clientStatus.value = client.status;
         elements.clientObservations.value = client.observations || '';
@@ -1278,6 +1494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       elements.clientState.value = '';
       elements.clientProduct.value = '';
       elements.clientSaleValue.value = '';
+      elements.clientBottles.value = 1;
       elements.clientObservations.value = '';
       elements.clientTrackingCode.value = '';
       elements.clientDeliveryDate.value = '';
@@ -1313,6 +1530,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       productId: Number(elements.clientProduct.value),
       planName: elements.clientPlan.value,
       saleValue: Number(elements.clientSaleValue.value) || 0,
+      bottles: Number(elements.clientBottles.value) || 0,
       attendant: elements.clientAttendant.value,
       date: elements.clientDate.value,
       status: elements.clientStatus.value,
@@ -1339,9 +1557,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           id: state.editingClientId
         };
         await window.db.put('clients', updatedClient);
+        await syncAutoExpenseForClient(updatedClient, 'manual');
         showToast('Cliente editado com sucesso!');
       } else {
-        await window.db.add('clients', clientData);
+        const newId = await window.db.add('clients', clientData);
+        clientData.id = newId;
+        await syncAutoExpenseForClient(clientData, 'manual');
         showToast('Cliente cadastrado com sucesso!');
       }
       closeClientModal();
@@ -1358,7 +1579,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function deleteClient(id) {
     if (confirm('Tem certeza que deseja apagar este cliente? Essa ação não poderá ser desfeita.')) {
       try {
+        const client = state.clients.find(c => Number(c.id) === Number(id));
+        let autoExpenseId = null;
+
+        if (client) {
+          const autoExpense = state.expenses.find(e => 
+            e.clientId === client.id || 
+            (e.observation && e.observation.includes(`[AUTO_EXPENSE_CLIENT_ID:${client.id}]`))
+          );
+          if (autoExpense) {
+            autoExpenseId = autoExpense.id;
+          }
+        }
+
         await window.db.delete('clients', id);
+
+        if (autoExpenseId) {
+          await window.db.delete('expenses', autoExpenseId);
+          state.expenses = state.expenses.filter(e => e.id !== autoExpenseId);
+        }
+
         showToast('Cliente removido.');
         await loadViewData('clients');
         if (typeof updateDashboard === 'function') {
@@ -1621,30 +1861,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const hadDecimalSeparator = /[,.]/.test(cleanStr);
 
-    // Resolve both comma and dot separation cases
-    if (cleanStr.includes('.') && cleanStr.includes(',')) {
-      const dotIndex = cleanStr.lastIndexOf('.');
-      const commaIndex = cleanStr.lastIndexOf(',');
-      if (dotIndex < commaIndex) {
-        // 1.217,00 -> 1217.00
-        cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+    const separatorMatches = [...cleanStr.matchAll(/[,.]/g)];
+    if (separatorMatches.length > 0) {
+      const lastSeparatorIndex = separatorMatches[separatorMatches.length - 1].index;
+      const decimalPart = cleanStr.slice(lastSeparatorIndex + 1);
+      const integerPart = cleanStr.slice(0, lastSeparatorIndex).replace(/[,.]/g, '');
+
+      if (decimalPart.length > 0 && decimalPart.length <= 2) {
+        cleanStr = `${integerPart || '0'}.${decimalPart}`;
       } else {
-        // 1,217.00 -> 1217.00
-        cleanStr = cleanStr.replace(/,/g, '');
-      }
-    } else if (cleanStr.includes(',')) {
-      // Single comma case: check if it represents a decimal point
-      const parts = cleanStr.split(',');
-      if (parts.length === 2 && parts[1].length <= 2) {
-        cleanStr = cleanStr.replace(',', '.');
-      } else {
-        cleanStr = cleanStr.replace(/,/g, '');
-      }
-    } else if (cleanStr.includes('.')) {
-      const parts = cleanStr.split('.');
-      if (parts.length > 2) {
-        const decimals = parts.pop();
-        cleanStr = `${parts.join('')}.${decimals}`;
+        cleanStr = cleanStr.replace(/[,.]/g, '');
       }
     }
 
@@ -2340,6 +2566,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         observations: String(observations).trim()
       };
 
+      // Check if automatic cost can be identified
+      const costRule = findCostRule(finalProductName, parsedBottles);
+      if (!costRule && finalProductName) {
+        const warningMsg = `Linha ${rowIndex + 2}: custo automático não identificado para ${finalProductName} com ${parsedBottles} potes.`;
+        if (!importState.warnings.includes(warningMsg)) {
+          importState.warnings.push(warningMsg);
+        }
+      }
+
       importState.mappedClients.push(clientData);
     });
 
@@ -2433,17 +2668,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         planDisplay = `<span class="badge badge-warning" style="font-size:0.75rem; font-weight:600; background-color: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">⚠️ Não identificado</span>`;
       }
 
+      const prod = state.products.find(p => p.id === client.productId);
+      const prodName = prod ? prod.name : (client.productName || 'Sem produto');
+      const productAndPotes = `${prodName} (${client.bottles || 0} potes)`;
+
+      const costRule = findCostRule(prodName, client.bottles);
+      let costDisplay = '';
+      let profitDisplay = '';
+      
+      if (costRule) {
+        costDisplay = formatCurrency(costRule.estimatedTotalCost);
+        profitDisplay = formatCurrency(client.saleValue - costRule.estimatedTotalCost);
+      } else {
+        costDisplay = '<span class="badge badge-warning" style="font-size:0.75rem; background-color: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 6px; border-radius: 4px;">Não id.</span>';
+        profitDisplay = formatCurrency(client.saleValue);
+      }
+
       tr.innerHTML = `
         <td>
           <div style="font-weight:600;">${escapeHTML(client.name)}</div>
           ${dupBadge}
         </td>
         <td>${formatCurrency(client.saleValue)}</td>
+        <td>${escapeHTML(productAndPotes)}</td>
         <td>${planDisplay}</td>
         <td>${escapeHTML(client.attendant)}</td>
-        <td><span class="badge ${statusBadge}">${escapeHTML(client.status)}</span></td>
-        <td>${escapeHTML(client.date ? formatDateDisplay(client.date) : '-')}</td>
-        <td>${escapeHTML(client.paymentDate ? formatDateDisplay(client.paymentDate) : '-')}</td>
+        <td>${costDisplay}</td>
+        <td>${profitDisplay}</td>
       `;
       previewBody.appendChild(tr);
     });
@@ -2498,20 +2749,26 @@ document.addEventListener('DOMContentLoaded', async () => {
               }
               await window.db.put('clients', client);
             } else {
-              await window.db.add('clients', client);
+              const newId = await window.db.add('clients', client);
+              client.id = newId;
             }
           } else {
             delete client.id;
             delete client._duplicateId;
             delete client._isDuplicate;
-            await window.db.add('clients', client);
+            const newId = await window.db.add('clients', client);
+            client.id = newId;
           }
         } else {
           delete client.id;
           delete client._duplicateId;
           delete client._isDuplicate;
-          await window.db.add('clients', client);
+          const newId = await window.db.add('clients', client);
+          client.id = newId;
         }
+
+        // Sync automatic expense for this client
+        await syncAutoExpenseForClient(client, 'import');
 
         importedCount++;
         if (client.status === 'Pago') {
@@ -2862,40 +3119,159 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ==========================================================================
   // EXPENSES SECTION (CRUD & Modals)
   // ==========================================================================
+  function populateExpenseFilters() {
+    if (!elements.filterExpenseProduct || !elements.filterExpenseClient || !elements.filterExpenseAttendant) return;
+
+    // 1. Populate products
+    const prevProduct = elements.filterExpenseProduct.value || 'all';
+    elements.filterExpenseProduct.innerHTML = '<option value="all">Todos</option>';
+    state.products.forEach(prod => {
+      const opt = document.createElement('option');
+      opt.value = prod.id;
+      opt.textContent = prod.name;
+      elements.filterExpenseProduct.appendChild(opt);
+    });
+    elements.filterExpenseProduct.value = prevProduct;
+
+    // 2. Populate clients
+    const prevClient = elements.filterExpenseClient.value || 'all';
+    elements.filterExpenseClient.innerHTML = '<option value="all">Todos</option>';
+    state.clients
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
+      .forEach(client => {
+        const opt = document.createElement('option');
+        opt.value = client.id;
+        opt.textContent = client.name || `Cliente #${client.id}`;
+        elements.filterExpenseClient.appendChild(opt);
+      });
+    elements.filterExpenseClient.value = prevClient;
+
+    // 3. Populate attendants
+    const prevAttendant = elements.filterExpenseAttendant.value || 'all';
+    elements.filterExpenseAttendant.innerHTML = '<option value="all">Todos</option>';
+    
+    // Get unique attendant names
+    const attendants = new Set();
+    state.clients.forEach(c => {
+      if (c.attendant) attendants.add(c.attendant.trim());
+    });
+    state.products.forEach(p => {
+      if (p.attendants && Array.isArray(p.attendants)) {
+        p.attendants.forEach(att => attendants.add(att.trim()));
+      } else if (typeof p.attendants === 'string') {
+        p.attendants.split(',').map(att => att.trim()).filter(Boolean).forEach(att => attendants.add(att));
+      }
+    });
+
+    Array.from(attendants).sort().forEach(att => {
+      const opt = document.createElement('option');
+      opt.value = att;
+      opt.textContent = att;
+      elements.filterExpenseAttendant.appendChild(opt);
+    });
+    elements.filterExpenseAttendant.value = prevAttendant;
+  }
+
   function renderExpensesList() {
     const tableBody = elements.expensesTableBody;
     tableBody.innerHTML = '';
 
     const searchQuery = elements.searchExpensesInput.value.toLowerCase().trim();
+    const typeVal = elements.filterExpenseType.value;
+    const prodVal = elements.filterExpenseProduct.value;
+    const clientVal = elements.filterExpenseClient.value;
+    const attVal = elements.filterExpenseAttendant.value;
+    const bottlesVal = elements.filterExpenseBottles.value;
+    const periodVal = elements.filterExpensePeriod.value;
+    const startVal = elements.filterExpenseStartDate.value;
+    const endVal = elements.filterExpenseEndDate.value;
+
+    let filterStart = null;
+    let filterEnd = null;
+    if (periodVal !== 'all') {
+      const range = getDateRange(periodVal, startVal, endVal);
+      filterStart = range.start;
+      filterEnd = range.end;
+    }
 
     // Filter list
     const filtered = state.expenses.filter(exp => {
+      // 1. Text search (on name, category, observation)
       const matchesSearch = !searchQuery ||
         exp.name.toLowerCase().includes(searchQuery) ||
         exp.category.toLowerCase().includes(searchQuery) ||
         (exp.observation && exp.observation.toLowerCase().includes(searchQuery));
-      return matchesSearch;
+      if (!matchesSearch) return false;
+
+      // 2. Type Filter (manual vs auto)
+      if (typeVal === 'manual' && exp.autoGenerated) return false;
+      if (typeVal === 'auto' && !exp.autoGenerated) return false;
+
+      // 3. Product Filter
+      if (prodVal !== 'all') {
+        if (String(exp.productId) !== prodVal) return false;
+      }
+
+      // Find related client if autoGenerated or if has clientId
+      const client = exp.clientId ? state.clients.find(c => c.id === exp.clientId) : null;
+
+      // 4. Client Filter
+      if (clientVal !== 'all') {
+        if (!client || String(client.id) !== String(clientVal)) return false;
+      }
+
+      // 5. Attendant/Vendedor Filter
+      if (attVal !== 'all') {
+        if (!client || client.attendant !== attVal) return false;
+      }
+
+      // 6. Bottles Filter
+      if (bottlesVal !== 'all') {
+        const bottlesCount = client ? Number(client.bottles) : 0;
+        if (bottlesVal === 'other') {
+          if ([1, 3, 6, 9, 12].includes(bottlesCount)) return false;
+        } else {
+          if (bottlesCount !== Number(bottlesVal)) return false;
+        }
+      }
+
+      // 7. Period Filter
+      if (periodVal !== 'all') {
+        const expDate = parseLocalDate(exp.date);
+        if (expDate < filterStart || expDate > filterEnd) return false;
+      }
+
+      return true;
     });
 
     if (filtered.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="7" class="table-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Nenhuma despesa cadastrada</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="9" class="table-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Nenhuma despesa encontrada</td></tr>`;
       return;
     }
 
     filtered.forEach(exp => {
+      const client = exp.clientId ? state.clients.find(c => String(c.id) === String(exp.clientId)) : null;
       let prodName = 'Nenhum';
       if (exp.productId) {
         const prod = state.products.find(p => String(p.id) === String(exp.productId));
         if (prod) prodName = prod.name;
       }
 
+      // Display origin: Manual vs Automatic
+      const originDisplay = exp.autoGenerated
+        ? `<span class="badge badge-success" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">Automática</span>`
+        : `<span class="badge badge-neutral">Manual</span>`;
+
       const row = document.createElement('tr');
       row.innerHTML = `
         <td><strong>${escapeHTML(exp.name)}</strong></td>
         <td><span class="badge badge-neutral">${escapeHTML(exp.category)}</span></td>
+        <td>${originDisplay}</td>
         <td><strong class="text-danger">${formatCurrency(exp.value)}</strong></td>
         <td>${formatDateDisplay(exp.date)}</td>
         <td>${escapeHTML(prodName)}</td>
+        <td>${escapeHTML(client ? client.name : '-')}</td>
         <td><div style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHTML(exp.observation || '')}">${escapeHTML(exp.observation || '-')}</div></td>
         <td>
           <div class="row-actions">
@@ -2921,8 +3297,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Expense search listener
+  // Expense filters and search listeners
   elements.searchExpensesInput.addEventListener('input', renderExpensesList);
+  elements.filterExpenseType.addEventListener('change', renderExpensesList);
+  elements.filterExpenseProduct.addEventListener('change', renderExpensesList);
+  elements.filterExpenseClient.addEventListener('change', renderExpensesList);
+  elements.filterExpenseAttendant.addEventListener('change', renderExpensesList);
+  elements.filterExpenseBottles.addEventListener('change', renderExpensesList);
+  
+  elements.filterExpensePeriod.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const dateGroups = document.querySelectorAll('.filter-expense-date-group');
+    if (val === 'custom') {
+      dateGroups.forEach(el => el.style.display = 'block');
+    } else {
+      dateGroups.forEach(el => el.style.display = 'none');
+    }
+    renderExpensesList();
+  });
+
+  elements.filterExpenseStartDate.addEventListener('change', renderExpensesList);
+  elements.filterExpenseEndDate.addEventListener('change', renderExpensesList);
 
   // Expense CRUD Action listeners
   elements.btnOpenAddExpenseModal.addEventListener('click', () => openExpenseModal());
@@ -2965,7 +3360,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   elements.expenseForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const existingExpense = state.editingExpenseId
+      ? state.expenses.find(e => Number(e.id) === Number(state.editingExpenseId))
+      : null;
+
     const expenseData = {
+      ...(existingExpense || {}),
       name: elements.expenseName.value.trim(),
       category: elements.expenseCategory.value,
       value: Number(elements.expenseValue.value) || 0,
@@ -3152,6 +3552,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.products = await window.db.getAll('products');
     state.clients = await window.db.getAll('clients');
     state.expenses = await window.db.getAll('expenses');
+    
+    // Load and seed product cost rules if needed
+    state.productCostRules = await window.db.getAll('product_cost_rules');
+    if (state.productCostRules.length === 0) {
+      for (const rule of DEFAULT_COST_RULES) {
+        await window.db.add('product_cost_rules', rule);
+      }
+      state.productCostRules = await window.db.getAll('product_cost_rules');
+    }
 
     // 3. Render default view
     navigateTo('dashboard');
