@@ -88,7 +88,9 @@ function toDbRow(storeName, item) {
       created_at: clean.createdAt || clean.created_at || new Date().toISOString(),
       updated_at: clean.updatedAt || clean.updated_at || new Date().toISOString(),
       last_login_at: clean.lastLoginAt || clean.last_login_at || null,
-      last_activity_at: clean.lastActivityAt || clean.last_activity_at || null
+      last_activity_at: clean.lastActivityAt || clean.last_activity_at || null,
+      theme_preference: clean.themePreference || clean.theme_preference || 'system',
+      panel_preference: clean.panelPreference || clean.panel_preference || 'default'
     };
   }
 
@@ -238,7 +240,9 @@ function fromDbRow(storeName, row) {
       createdAt: row.created_at || '',
       updatedAt: row.updated_at || '',
       lastLoginAt: row.last_login_at || '',
-      lastActivityAt: row.last_activity_at || ''
+      lastActivityAt: row.last_activity_at || '',
+      themePreference: row.theme_preference || 'system',
+      panelPreference: row.panel_preference || 'default'
     };
   }
 

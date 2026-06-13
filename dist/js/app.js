@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function syncAutoExpenseForClient(client, source = 'manual') {
     if (!client || !client.id) return;
-    if (authState.user && authState.user.role === 'funcionario') return;
+    if (window.db.isSupabaseReady && window.db.isSupabaseReady()) return;
 
     // Find the product name
     const product = state.products.find(p => p.id === client.productId);
@@ -313,6 +313,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnCancelClientModal: document.getElementById('btnCancelClientModal'),
     btnCloseClientModal: document.getElementById('btnCloseClientModal'),
     clientModalTitle: document.getElementById('clientModalTitle'),
+    clientDetailsModal: document.getElementById('clientDetailsModal'),
+    clientDetailsTitle: document.getElementById('clientDetailsTitle'),
+    clientDetailsContent: document.getElementById('clientDetailsContent'),
+    btnCloseClientDetailsModal: document.getElementById('btnCloseClientDetailsModal'),
+    btnCloseClientDetailsFooter: document.getElementById('btnCloseClientDetailsFooter'),
 
     // Product Page & CRUD
     searchProductsInput: document.getElementById('searchProductsInput'),
@@ -361,11 +366,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     settingsForm: document.getElementById('settingsForm'),
     settingsSystemName: document.getElementById('settingsSystemName'),
     settingsEmployeeEditClients: document.getElementById('settingsEmployeeEditClients'),
+    settingsEmployeeDeleteClients: document.getElementById('settingsEmployeeDeleteClients'),
     settingsEmployeeSeeAllClients: document.getElementById('settingsEmployeeSeeAllClients'),
     btnResetDatabase: document.getElementById('btnResetDatabase'),
     themeOptLight: document.getElementById('themeOptLight'),
     themeOptDark: document.getElementById('themeOptDark'),
     themeOptSystem: document.getElementById('themeOptSystem'),
+
+    // Employee settings/profile elements
+    employeeSettingsForm: document.getElementById('employeeSettingsForm'),
+    empSettingsDisplayName: document.getElementById('empSettingsDisplayName'),
+    empSettingsPhone: document.getElementById('empSettingsPhone'),
+    empThemeOptLight: document.getElementById('empThemeOptLight'),
+    empThemeOptDark: document.getElementById('empThemeOptDark'),
+    empThemeOptSystem: document.getElementById('empThemeOptSystem'),
+    empSettingsPanelPreference: document.getElementById('empSettingsPanelPreference'),
+    empSettingsAvatar: document.getElementById('empSettingsAvatar'),
+    empSettingsProfileName: document.getElementById('empSettingsProfileName'),
+    empSettingsProfileStatus: document.getElementById('empSettingsProfileStatus'),
+    empSettingsProfileEmail: document.getElementById('empSettingsProfileEmail'),
+    empSettingsProfilePosition: document.getElementById('empSettingsProfilePosition'),
+    empSettingsProfileLastLogin: document.getElementById('empSettingsProfileLastLogin'),
+    empSettingsProfileLastActivity: document.getElementById('empSettingsProfileLastActivity'),
 
     // Import Modal
     importModal: document.getElementById('importModal'),
@@ -551,14 +573,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (role === 'funcionario') {
       if (viewId === 'dashboard') {
         viewId = 'employee-dashboard';
+      } else if (viewId === 'settings') {
+        viewId = 'employee-settings';
       }
-      const allowedViews = ['employee-dashboard', 'clients'];
+      const allowedViews = ['employee-dashboard', 'clients', 'employee-settings'];
       if (!allowedViews.includes(viewId)) {
         viewId = 'employee-dashboard';
       }
     } else {
       if (viewId === 'employee-dashboard') {
         viewId = 'dashboard';
+      } else if (viewId === 'employee-settings') {
+        viewId = 'settings';
       }
     }
 
@@ -567,7 +593,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Toggle active classes on sidebar
     elements.sidebarItems.forEach(item => {
       const itemView = item.getAttribute('data-view');
-      if (itemView === viewId || (itemView === 'dashboard' && viewId === 'employee-dashboard')) {
+      if (itemView === viewId || 
+          (itemView === 'dashboard' && viewId === 'employee-dashboard') ||
+          (itemView === 'settings' && viewId === 'employee-settings')) {
         item.classList.add('active');
       } else {
         item.classList.remove('active');
@@ -630,6 +658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.settings.theme = await window.db.getSetting('theme', 'system');
     state.settings.systemName = await window.db.getSetting('systemName', 'Help Vitall');
     state.settings.employeeEditClients = await window.db.getSetting('employeeEditClients', true);
+    state.settings.employeeDeleteClients = await window.db.getSetting('employeeDeleteClients', true);
     state.settings.employeeSeeAllClients = await window.db.getSetting('employeeSeeAllClients', true);
 
     // Update UI elements
@@ -637,6 +666,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.settingsSystemName.value = state.settings.systemName;
     if (elements.settingsEmployeeEditClients) {
       elements.settingsEmployeeEditClients.checked = state.settings.employeeEditClients;
+    }
+    if (elements.settingsEmployeeDeleteClients) {
+      elements.settingsEmployeeDeleteClients.checked = state.settings.employeeDeleteClients;
     }
     if (elements.settingsEmployeeSeeAllClients) {
       elements.settingsEmployeeSeeAllClients.checked = state.settings.employeeSeeAllClients;
@@ -693,6 +725,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       state.settings.employeeEditClients = elements.settingsEmployeeEditClients.checked;
       await window.db.setSetting('employeeEditClients', state.settings.employeeEditClients);
     }
+    if (elements.settingsEmployeeDeleteClients) {
+      state.settings.employeeDeleteClients = elements.settingsEmployeeDeleteClients.checked;
+      await window.db.setSetting('employeeDeleteClients', state.settings.employeeDeleteClients);
+    }
     if (elements.settingsEmployeeSeeAllClients) {
       state.settings.employeeSeeAllClients = elements.settingsEmployeeSeeAllClients.checked;
       await window.db.setSetting('employeeSeeAllClients', state.settings.employeeSeeAllClients);
@@ -700,6 +736,179 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     showToast('Configurações salvas com sucesso!');
   });
+
+  // ==========================================================================
+  // EMPLOYEE SETTINGS & PROFILE MANAGEMENT
+  // ==========================================================================
+  if (elements.empThemeOptLight) {
+    elements.empThemeOptLight.addEventListener('click', () => applyEmpThemeSelection('light', true));
+  }
+  if (elements.empThemeOptDark) {
+    elements.empThemeOptDark.addEventListener('click', () => applyEmpThemeSelection('dark', true));
+  }
+  if (elements.empThemeOptSystem) {
+    elements.empThemeOptSystem.addEventListener('click', () => applyEmpThemeSelection('system', true));
+  }
+
+  async function getCurrentUserProfileRecord() {
+    if (!authState.user) return null;
+
+    let profile = await window.db.get('profiles', authState.user.profileId || authState.user.id);
+    if (!profile) {
+      const profiles = await window.db.getAll('profiles');
+      profile = profiles.find(p => String(p.email || '').toLowerCase() === String(authState.user.email || '').toLowerCase());
+    }
+
+    return profile || null;
+  }
+
+  async function updateCurrentUserProfile(updates) {
+    const profile = await getCurrentUserProfileRecord();
+    if (!profile) {
+      throw new Error('Perfil de acesso não encontrado.');
+    }
+
+    const updatedProfile = {
+      ...profile,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    await window.db.put('profiles', updatedProfile);
+    return updatedProfile;
+  }
+
+  async function applyEmpThemeSelection(theme, saveToDb) {
+    if (!elements.empThemeOptLight || !elements.empThemeOptDark || !elements.empThemeOptSystem) return;
+    elements.empThemeOptLight.classList.remove('active');
+    elements.empThemeOptDark.classList.remove('active');
+    elements.empThemeOptSystem.classList.remove('active');
+
+    if (theme === 'light') {
+      elements.empThemeOptLight.classList.add('active');
+    } else if (theme === 'dark') {
+      elements.empThemeOptDark.classList.add('active');
+    } else {
+      elements.empThemeOptSystem.classList.add('active');
+    }
+
+    if (saveToDb && authState.user) {
+      authState.user.themePreference = theme;
+      applyTheme(theme);
+      try {
+        await updateCurrentUserProfile({ themePreference: theme });
+        showToast('Preferência de tema salva!');
+        await logActivity('EDIT_PROFILE', 'Atualizou a preferência de tema do próprio perfil', 'profiles', authState.user.profileId || authState.user.id, authState.user.name || authState.user.email);
+      } catch (err) {
+        console.error(err);
+        showToast('Erro ao salvar preferência de tema.', 'error');
+      }
+    }
+  }
+
+  function applyLayoutPreference(layout) {
+    if (layout === 'compact') {
+      document.body.classList.add('layout-compact');
+    } else {
+      document.body.classList.remove('layout-compact');
+    }
+  }
+
+  function loadEmployeeSettingsView() {
+    const user = authState.user;
+    if (!user) return;
+
+    if (elements.empSettingsProfileName) {
+      elements.empSettingsProfileName.textContent = user.name || user.email || 'Funcionário';
+    }
+    if (elements.empSettingsProfileStatus) {
+      elements.empSettingsProfileStatus.textContent = user.status === 'active' || user.status === 'Ativo' ? 'Ativo' : 'Inativo';
+      elements.empSettingsProfileStatus.className = 'badge';
+      if (user.status === 'active' || user.status === 'Ativo') {
+        elements.empSettingsProfileStatus.classList.add('badge-success');
+      } else {
+        elements.empSettingsProfileStatus.classList.add('badge-danger');
+      }
+    }
+    
+    if (elements.empSettingsProfileEmail) {
+      elements.empSettingsProfileEmail.textContent = user.email || '-';
+    }
+    if (elements.empSettingsProfilePosition) {
+      elements.empSettingsProfilePosition.textContent = user.position || 'Funcionário';
+    }
+
+    const lastLogin = user.lastLoginAt || user.last_login_at;
+    const lastActivity = user.lastActivityAt || user.last_activity_at;
+    if (elements.empSettingsProfileLastLogin) {
+      elements.empSettingsProfileLastLogin.textContent = lastLogin ? formatDateTimeLabel(lastLogin) : 'Nunca';
+    }
+    if (elements.empSettingsProfileLastActivity) {
+      elements.empSettingsProfileLastActivity.textContent = lastActivity ? formatDateTimeLabel(lastActivity) : 'Nunca';
+    }
+
+    if (elements.empSettingsAvatar) {
+      const initials = (user.name || user.email || 'U').charAt(0).toUpperCase();
+      elements.empSettingsAvatar.textContent = initials;
+    }
+
+    if (elements.empSettingsDisplayName) {
+      elements.empSettingsDisplayName.value = user.name || '';
+    }
+    if (elements.empSettingsPhone) {
+      elements.empSettingsPhone.value = user.phone || '';
+    }
+
+    const userTheme = user.themePreference || 'system';
+    applyEmpThemeSelection(userTheme, false);
+
+    const userLayout = user.panelPreference || 'default';
+    if (elements.empSettingsPanelPreference) {
+      elements.empSettingsPanelPreference.value = userLayout;
+    }
+    applyLayoutPreference(userLayout);
+  }
+
+  if (elements.employeeSettingsForm) {
+    elements.employeeSettingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!authState.user) return;
+
+      const newName = elements.empSettingsDisplayName.value.trim();
+      const newPhone = elements.empSettingsPhone.value.trim();
+      const newLayout = elements.empSettingsPanelPreference.value;
+
+      authState.user.name = newName;
+      authState.user.phone = newPhone;
+      authState.user.panelPreference = newLayout;
+
+      applyLayoutPreference(newLayout);
+
+      try {
+        await updateCurrentUserProfile({
+          name: newName,
+          fullName: newName,
+          phone: newPhone,
+          themePreference: authState.user.themePreference || 'system',
+          panelPreference: newLayout
+        });
+
+        const userGreetingName = document.querySelector('.user-greeting strong');
+        if (userGreetingName) {
+          userGreetingName.textContent = newName;
+        }
+        if (elements.empSettingsProfileName) {
+          elements.empSettingsProfileName.textContent = newName;
+        }
+
+        showToast('Perfil atualizado com sucesso!');
+        await logActivity('EDIT_PROFILE', 'Atualizou os dados do próprio perfil', 'profiles', authState.user.profileId || authState.user.id, newName || authState.user.email);
+      } catch (err) {
+        console.error(err);
+        showToast('Erro ao atualizar perfil.', 'error');
+      }
+    });
+  }
 
   elements.btnResetDatabase.addEventListener('click', async () => {
     if (window.db.isSupabaseReady && window.db.isSupabaseReady()) {
@@ -846,6 +1055,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         break;
       case 'settings':
         // Handled in loadSettings
+        break;
+      case 'employee-settings':
+        loadEmployeeSettingsView();
         break;
       case 'employees':
         renderEmployeesList();
@@ -1376,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isEmployee = authState.user && authState.user.role === 'funcionario';
     const seeAll = !isEmployee || state.settings.employeeSeeAllClients;
     const canEdit = !isEmployee || state.settings.employeeEditClients;
-    const canDelete = !isEmployee;
+    const canDelete = !isEmployee || state.settings.employeeDeleteClients;
 
     // Filter list
     const filtered = state.clients.filter(client => {
@@ -1407,7 +1619,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       else if (client.status === 'Golpe') statusBadge = 'badge-danger';
       else if (client.status === 'Pagamento pendente') statusBadge = 'badge-warning';
 
-      let actionsHtml = '';
+      let actionsHtml = `
+        <button class="btn btn-secondary btn-sm btn-icon-only btn-view-client" data-id="${client.id}" title="Ver detalhes">
+          <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      `;
       if (canEdit) {
         actionsHtml += `
           <button class="btn btn-secondary btn-sm btn-icon-only btn-edit-client" data-id="${client.id}" title="Editar">
@@ -1444,6 +1660,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Bind edit/delete handlers
+    tableBody.querySelectorAll('.btn-view-client').forEach(btn => {
+      btn.addEventListener('click', () => openClientDetailsModal(btn.getAttribute('data-id')));
+    });
+
     tableBody.querySelectorAll('.btn-edit-client').forEach(btn => {
       btn.addEventListener('click', () => openClientModal(btn.getAttribute('data-id')));
     });
@@ -1455,6 +1675,80 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Client search listener
   elements.searchClientsInput.addEventListener('input', renderClientsList);
+
+  function getClientDisplayProductName(client) {
+    const product = state.products.find(p => String(p.id) === String(client.productId));
+    return product ? product.name : 'Produto Desconhecido';
+  }
+
+  function getClientDisplayDate(value) {
+    return value ? formatDateDisplay(String(value).split('T')[0]) : '-';
+  }
+
+  function openClientDetailsModal(id) {
+    const client = state.clients.find(c => String(c.id) === String(id));
+    if (!client || !elements.clientDetailsModal || !elements.clientDetailsContent) {
+      showToast('Cliente não encontrado.', 'error');
+      return;
+    }
+
+    if (elements.clientDetailsTitle) {
+      elements.clientDetailsTitle.textContent = `Detalhes de ${client.name || 'Cliente'}`;
+    }
+
+    const details = [
+      ['Nome', client.name],
+      ['Telefone', client.phone],
+      ['País', client.country],
+      ['Endereço', client.address],
+      ['Cidade', client.city],
+      ['Estado', client.state],
+      ['Código postal', client.zip],
+      ['Produto', getClientDisplayProductName(client)],
+      ['Plano', client.planName],
+      ['Valor', formatCurrency(client.saleValue)],
+      ['Frascos', client.bottles || '-'],
+      ['Vendedor', client.attendant],
+      ['Data', getClientDisplayDate(client.date)],
+      ['Status', client.status],
+      ['Enviado', client.sent ? 'Sim' : 'Não'],
+      ['Rastreio', client.trackingCode],
+      ['Data de entrega', getClientDisplayDate(client.deliveryDate)],
+      ['Entregue', client.delivered ? 'Sim' : 'Não'],
+      ['Pago', client.paid ? 'Sim' : 'Não'],
+      ['Data do pagamento', getClientDisplayDate(client.paymentDate)],
+      ['Forma de pagamento', client.paymentMethod],
+      ['Criado por', client.createdByName],
+      ['Origem', client.creationSource === 'spreadsheet' ? 'Planilha' : 'Manual'],
+      ['Observações', client.observations]
+    ];
+
+    elements.clientDetailsContent.innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+        ${details.map(([label, value]) => `
+          <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">${escapeHTML(label)}</div>
+            <div style="font-weight: 600; overflow-wrap: anywhere;">${escapeHTML(value || '-')}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    elements.clientDetailsModal.classList.add('active');
+  }
+
+  function closeClientDetailsModal() {
+    if (elements.clientDetailsModal) {
+      elements.clientDetailsModal.classList.remove('active');
+    }
+  }
+
+  if (elements.btnCloseClientDetailsModal) {
+    elements.btnCloseClientDetailsModal.addEventListener('click', closeClientDetailsModal);
+  }
+  if (elements.btnCloseClientDetailsFooter) {
+    elements.btnCloseClientDetailsFooter.addEventListener('click', closeClientDetailsModal);
+  }
 
   // Client dropdown change updates plans & attendants
   elements.clientProduct.addEventListener('change', (e) => {
@@ -3655,7 +3949,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Show/hide sidebar navigation items
     elements.sidebarItems.forEach(item => {
       const view = item.getAttribute('data-view');
-      const adminOnlyViews = ['products', 'expenses', 'reports', 'settings', 'employees'];
+      const adminOnlyViews = ['products', 'expenses', 'reports', 'employees'];
       if (adminOnlyViews.includes(view)) {
         if (role === 'admin') {
           item.style.display = 'block';
@@ -3728,14 +4022,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function checkSession() {
     if (!supabase) {
       console.warn("Supabase not configured. Using local bypass mode for development.");
-      const profile = await loadUserProfile({ email: 'admin@helpvitall.com', role: 'admin' });
+      const savedEmail = localStorage.getItem('localBypassUserEmail');
+      if (savedEmail === 'logged-out') {
+        return false;
+      }
+      const email = savedEmail || 'admin@helpvitall.com';
+      const profile = await loadUserProfile({ email: email });
+      if (!profile) {
+        return false;
+      }
       authState.user = { 
-        id: 'local-admin', 
-        email: 'admin@helpvitall.com', 
-        role: profile?.role || 'admin',
-        profileId: profile?.id || 1,
-        name: profile?.name || 'Administrador Local'
+        id: profile.authUserId || 'local-admin', 
+        email: profile.email, 
+        role: profile.role || 'admin',
+        profileId: profile.id || 1,
+        name: profile.name || 'Administrador Local',
+        phone: profile.phone || '',
+        themePreference: profile.themePreference || profile.theme_preference || 'system',
+        panelPreference: profile.panelPreference || profile.panel_preference || 'default',
+        status: profile.status || 'active',
+        position: profile.position || 'Administrador'
       };
+      if (authState.user.themePreference) {
+        applyTheme(authState.user.themePreference);
+      }
+      applyLayoutPreference(authState.user.panelPreference);
       applyRolePermissions();
       return true;
     }
@@ -3765,8 +4076,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           email: user.email, 
           role: profile.role,
           profileId: profile.id,
-          name: profile.name
+          name: profile.name,
+          phone: profile.phone || '',
+          themePreference: profile.themePreference || profile.theme_preference || 'system',
+          panelPreference: profile.panelPreference || profile.panel_preference || 'default',
+          status: profile.status,
+          position: profile.position
         };
+        if (authState.user.themePreference) {
+          applyTheme(authState.user.themePreference);
+        }
+        applyLayoutPreference(authState.user.panelPreference);
         applyRolePermissions();
         
         // Update last activity
@@ -3819,10 +4139,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         email: profile.email, 
         role: profile.role,
         profileId: profile.id,
-        name: profile.name
+        name: profile.name,
+        phone: profile.phone || '',
+        themePreference: profile.themePreference || profile.theme_preference || 'system',
+        panelPreference: profile.panelPreference || profile.panel_preference || 'default',
+        status: profile.status,
+        position: profile.position
       };
+      if (authState.user.themePreference) {
+        applyTheme(authState.user.themePreference);
+      }
+      applyLayoutPreference(authState.user.panelPreference);
       
       applyRolePermissions();
+      
+      localStorage.setItem('localBypassUserEmail', profile.email);
       
       await saveProfileAccessTimestamps(profile, { login: true });
       
@@ -3858,8 +4189,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       email: user.email, 
       role: profile.role,
       profileId: profile.id,
-      name: profile.name
+      name: profile.name,
+      phone: profile.phone || '',
+      themePreference: profile.themePreference || profile.theme_preference || 'system',
+      panelPreference: profile.panelPreference || profile.panel_preference || 'default',
+      status: profile.status,
+      position: profile.position
     };
+    if (authState.user.themePreference) {
+      applyTheme(authState.user.themePreference);
+    }
+    applyLayoutPreference(authState.user.panelPreference);
 
     applyRolePermissions();
 
@@ -3880,6 +4220,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (err) {
         console.error("Supabase signOut error:", err);
       }
+    } else {
+      localStorage.setItem('localBypassUserEmail', 'logged-out');
     }
     authState.user = null;
     showToast('Sessão encerrada.');
@@ -4125,7 +4467,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       IMPORT_ERROR: 'Erro na importação',
       STATUS_CHANGE: 'Status funcionário',
       CREATE_EMPLOYEE: 'Funcionário criado',
-      EDIT_EMPLOYEE: 'Funcionário editado'
+      EDIT_EMPLOYEE: 'Funcionário editado',
+      EDIT_PROFILE: 'Perfil atualizado'
     };
     return labels[actionType] || actionType || '-';
   }

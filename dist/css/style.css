@@ -1443,3 +1443,67 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* ==========================================================================
+   EMPLOYEE DASHBOARD & SETTINGS CUSTOM STYLES
+   ========================================================================== */
+.kpi-card.kpi-total::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 4px; height: 100%;
+  background: linear-gradient(to bottom, #3b82f6, #6366f1);
+}
+.kpi-card.kpi-total .kpi-icon-wrapper {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.kpi-card.kpi-paid::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 4px; height: 100%;
+  background: linear-gradient(to bottom, #10b981, #059669);
+}
+.kpi-card.kpi-paid .kpi-icon-wrapper {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.kpi-card.kpi-pending::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 4px; height: 100%;
+  background: linear-gradient(to bottom, #f59e0b, #d97706);
+}
+.kpi-card.kpi-pending .kpi-icon-wrapper {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.kpi-card.kpi-scam::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 4px; height: 100%;
+  background: linear-gradient(to bottom, #ef4444, #dc2626);
+}
+.kpi-card.kpi-scam .kpi-icon-wrapper {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Compact layout mode for the app content */
+body.layout-compact .app-content {
+  padding: 16px;
+}
+body.layout-compact .kpi-grid, 
+body.layout-compact .stats-grid {
+  gap: 12px;
+}
+body.layout-compact .kpi-card {
+  padding: 16px;
+}
+body.layout-compact .data-table td,
+body.layout-compact .data-table th {
+  padding: 10px 16px;
+}
+
+

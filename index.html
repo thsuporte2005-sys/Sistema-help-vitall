@@ -567,6 +567,10 @@
                   Permitir que funcionários editem clientes
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
+                  <input type="checkbox" id="settingsEmployeeDeleteClients" checked style="width: 16px; height: 16px; margin: 0;">
+                  Permitir que funcionários excluam clientes
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
                   <input type="checkbox" id="settingsEmployeeSeeAllClients" checked style="width: 16px; height: 16px; margin: 0;">
                   Permitir que funcionários vejam todos os clientes (gerais)
                 </label>
@@ -585,6 +589,91 @@
               <button type="submit" class="btn btn-primary">Salvar Configurações</button>
             </div>
           </form>
+        </div>
+      </section>
+
+      <!-- ==========================================================================
+           6.5 EMPLOYEE SETTINGS VIEW (EMPLOYEE ONLY)
+           ========================================================================== -->
+      <section class="page-view" id="view-employee-settings">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <!-- Employee Profile Details -->
+          <div class="card" style="padding: 24px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+              <div style="width: 60px; height: 60px; border-radius: 50%; background: var(--color-emerald-500); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; font-weight: 700;" id="empSettingsAvatar">
+                U
+              </div>
+              <div>
+                <h3 style="font-size: 1.15rem; font-weight: 600;" id="empSettingsProfileName">Nome do Funcionário</h3>
+                <span class="badge badge-success" id="empSettingsProfileStatus">Ativo</span>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.85rem;">
+              <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">E-mail institucional</span>
+                <strong id="empSettingsProfileEmail">-</strong>
+              </div>
+              <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Cargo / Função</span>
+                <strong id="empSettingsProfilePosition">-</strong>
+              </div>
+              <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Último login</span>
+                <strong id="empSettingsProfileLastLogin">-</strong>
+              </div>
+              <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Última atividade</span>
+                <strong id="empSettingsProfileLastActivity">-</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Employee Settings Form -->
+          <div class="card" style="padding: 24px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+            <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 20px;">Minhas Configurações</h3>
+            <form id="employeeSettingsForm">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label" for="empSettingsDisplayName">Nome de Exibição</label>
+                <input type="text" class="form-input" id="empSettingsDisplayName" required>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label" for="empSettingsPhone">Telefone (Opcional)</label>
+                <input type="text" class="form-input" id="empSettingsPhone" placeholder="Ex: (11) 99999-9999">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label">Tema Visual</label>
+                <div class="theme-options-grid">
+                  <div class="theme-option-card" data-theme="light" id="empThemeOptLight">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    <span>Claro</span>
+                  </div>
+                  <div class="theme-option-card" data-theme="dark" id="empThemeOptDark">
+                    <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <span>Escuro</span>
+                  </div>
+                  <div class="theme-option-card" data-theme="system" id="empThemeOptSystem">
+                    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>Sistema</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label" for="empSettingsPanelPreference">Preferência Visual do Painel</label>
+                <select class="form-input" id="empSettingsPanelPreference">
+                  <option value="default">Padrão (Moderno)</option>
+                  <option value="compact">Compacto (Mais densidade)</option>
+                </select>
+              </div>
+
+              <div style="text-align: right;">
+                <button type="submit" class="btn btn-primary">Salvar Perfil</button>
+              </div>
+            </form>
+          </div>
         </div>
       </section>
 
@@ -678,10 +767,10 @@
         <!-- KPI Grid -->
         <div class="kpi-grid">
           <!-- Card: Total Clientes -->
-          <div class="kpi-card">
+          <div class="kpi-card kpi-total">
             <div class="kpi-header">
               <span class="kpi-title">Total de Clientes</span>
-              <div class="kpi-icon-wrapper" style="background: rgba(16, 185, 129, 0.1); color: var(--color-emerald-500);">
+              <div class="kpi-icon-wrapper">
                 <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
               </div>
             </div>
@@ -690,10 +779,10 @@
           </div>
 
           <!-- Card: Clientes Pagos -->
-          <div class="kpi-card">
+          <div class="kpi-card kpi-paid">
             <div class="kpi-header">
               <span class="kpi-title">Clientes Pagos</span>
-              <div class="kpi-icon-wrapper" style="background: rgba(16, 185, 129, 0.1); color: var(--color-emerald-500);">
+              <div class="kpi-icon-wrapper">
                 <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               </div>
             </div>
@@ -702,10 +791,10 @@
           </div>
 
           <!-- Card: Clientes Pendentes -->
-          <div class="kpi-card">
+          <div class="kpi-card kpi-pending">
             <div class="kpi-header">
               <span class="kpi-title">Clientes Pendentes</span>
-              <div class="kpi-icon-wrapper" style="background: rgba(245, 158, 11, 0.1); color: var(--color-yellow-500);">
+              <div class="kpi-icon-wrapper">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
             </div>
@@ -714,10 +803,10 @@
           </div>
 
           <!-- Card: Clientes Golpe -->
-          <div class="kpi-card">
+          <div class="kpi-card kpi-scam">
             <div class="kpi-header">
               <span class="kpi-title">Clientes Golpe</span>
-              <div class="kpi-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: var(--color-red-500);">
+              <div class="kpi-icon-wrapper">
                 <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
             </div>
@@ -1047,6 +1136,22 @@
           <button type="submit" class="btn btn-primary">Salvar Cliente</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Client Details -->
+  <div class="modal-backdrop" id="clientDetailsModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title" id="clientDetailsTitle">Detalhes do Cliente</h3>
+        <button class="modal-close" id="btnCloseClientDetailsModal" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="clientDetailsContent"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btnCloseClientDetailsFooter">Fechar</button>
+      </div>
     </div>
   </div>
 
