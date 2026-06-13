@@ -501,6 +501,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${day}/${month}/${year}`;
   }
 
+  function formatDateTimeLabel(value, fallback = '-') {
+    if (!value) return fallback;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return fallback;
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
   // ==========================================================================
   // TOAST NOTIFICATION UTILITY
   // ==========================================================================
@@ -1649,14 +1659,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.db.put('clients', updatedClient);
         await syncAutoExpenseForClient(updatedClient, 'manual');
         showToast('Cliente editado com sucesso!');
-        await logActivity('EDIT_CLIENT', `Editou cliente ${clientData.name}`, 'clients', state.editingClientId);
+        await logActivity('EDIT_CLIENT', `Editou cliente ${clientData.name}`, 'clients', state.editingClientId, clientData.name);
         if (originalClient && originalClient.status !== clientData.status) {
           const actionType = clientData.status === 'Pago'
             ? 'MARK_CLIENT_PAID'
             : clientData.status === 'Golpe'
               ? 'MARK_CLIENT_SCAM'
               : 'CLIENT_STATUS_CHANGE';
-          await logActivity(actionType, `Alterou status do cliente ${clientData.name} para ${clientData.status}`, 'clients', state.editingClientId);
+          await logActivity(actionType, `Alterou status do cliente ${clientData.name} para ${clientData.status}`, 'clients', state.editingClientId, clientData.name);
         }
       } else {
         if (authState.user) {
@@ -1669,7 +1679,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         clientData.id = newId;
         await syncAutoExpenseForClient(clientData, 'manual');
         showToast('Cliente cadastrado com sucesso!');
-        await logActivity('ADD_CLIENT', `Cadastrou cliente ${clientData.name}`, 'clients', newId);
+        await logActivity('ADD_CLIENT', `Cadastrou cliente ${clientData.name}`, 'clients', newId, clientData.name);
       }
       closeClientModal();
       await loadViewData('clients');
@@ -1699,7 +1709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         await window.db.delete('clients', id);
-        await logActivity('DELETE_CLIENT', `Apagou o cliente ${client ? client.name : id}`, 'clients', id);
+        await logActivity('DELETE_CLIENT', `Apagou o cliente ${client ? client.name : id}`, 'clients', id, client ? client.name : '');
 
         if (autoExpenseId) {
           await window.db.delete('expenses', autoExpenseId);
@@ -2934,9 +2944,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           warnings: importState.warnings
         }
       });
-      await logActivity('IMPORT_CLIENTS', `Importou ${importedCount} clientes via planilha "${importState.fileName || ''}"`);
+      await logActivity('IMPORT_CLIENTS', `Importou ${importedCount} clientes via planilha "${importState.fileName || ''}"`, 'spreadsheet_imports', null, importState.fileName || 'Planilha importada');
       if (errorCount > 0) {
-        await logActivity('IMPORT_ERROR', `Importação "${importState.fileName || ''}" finalizada com ${errorCount} erro(s): ${firstErrorMessage || 'ver console'}`);
+        await logActivity('IMPORT_ERROR', `Importação "${importState.fileName || ''}" finalizada com ${errorCount} erro(s): ${firstErrorMessage || 'ver console'}`, 'spreadsheet_imports', null, importState.fileName || 'Planilha importada');
       }
     } catch (err) {
       console.error('Error logging import summary:', err);
@@ -3530,16 +3540,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ==========================================================================
   const supabase = window.db.getSupabaseClient ? window.db.getSupabaseClient() : null;
 
-  async function logActivity(actionType, description, entityType = null, entityId = null) {
+  async function logActivity(actionType, description, targetType = null, targetId = null, targetName = '') {
     if (!authState.user) return;
     
     try {
+      const safeTargetId = targetId !== undefined && targetId !== null && targetId !== ''
+        ? String(targetId)
+        : null;
+      const numericTargetId = safeTargetId !== null ? Number(safeTargetId) : NaN;
+      const legacyEntityId = Number.isFinite(numericTargetId) ? numericTargetId : null;
+      const actorRole = normalizeUserRole(authState.user.role);
+
       const logData = {
-        employeeId: authState.user.profileId,
+        employeeId: authState.user.profileId || null,
+        actorUserId: authState.user.profileId || authState.user.id || null,
+        actorEmail: authState.user.email || '',
+        actorRole,
         actionType: actionType,
         description: description,
-        entityType: entityType,
-        entityId: entityId ? Number(entityId) : null,
+        entityType: targetType || '',
+        entityId: legacyEntityId,
+        targetType: targetType || '',
+        targetId: safeTargetId,
+        targetName: targetName || '',
         createdAt: new Date().toISOString(),
         ipAddress: '',
         userAgent: navigator.userAgent
@@ -3548,6 +3571,80 @@ document.addEventListener('DOMContentLoaded', async () => {
       await window.db.add('employee_activity_logs', logData);
     } catch (err) {
       console.error('Failed to write activity log:', err);
+    }
+  }
+
+  function normalizeUserRole(role) {
+    const normalized = normalizeImportText(role);
+    if (['admin', 'administrador'].includes(normalized)) {
+      return 'admin';
+    }
+    return 'funcionario';
+  }
+
+  function isEmployeeRole(role) {
+    const normalized = normalizeImportText(role);
+    return ['employee', 'funcionario'].includes(normalized);
+  }
+
+  function getDisplayUserRole(role) {
+    return normalizeUserRole(role) === 'admin' ? 'Administrador' : 'Funcionário';
+  }
+
+  function normalizeAccessProfile(profile) {
+    if (!profile) return null;
+    return {
+      ...profile,
+      role: normalizeUserRole(profile.role),
+      status: profile.status || 'active',
+      name: profile.name || profile.fullName || profile.email || 'Usuário'
+    };
+  }
+
+  function getFriendlyAuthErrorMessage(err) {
+    const message = String(err?.message || err || '');
+    const lower = message.toLowerCase();
+
+    if (
+      lower.includes('cannot coerce the result to a single json object') ||
+      lower.includes('json object') ||
+      lower.includes('pgrst116') ||
+      lower.includes('profiles')
+    ) {
+      return 'Não foi possível carregar seu perfil de acesso. Verifique se este usuário foi cadastrado como admin ou funcionário.';
+    }
+
+    if (lower.includes('invalid login credentials')) {
+      return 'E-mail ou senha inválidos.';
+    }
+
+    if (lower.includes('email not confirmed')) {
+      return 'Este e-mail ainda não foi confirmado no Supabase.';
+    }
+
+    if (lower.includes('desativada') || lower.includes('inactive')) {
+      return 'Seu acesso está desativado. Fale com o administrador.';
+    }
+
+    return message || 'Não foi possível fazer login. Tente novamente.';
+  }
+
+  async function saveProfileAccessTimestamps(profile, { login = false } = {}) {
+    if (!profile) return profile;
+
+    const now = new Date().toISOString();
+    const updatedProfile = {
+      ...profile,
+      lastLoginAt: login ? now : profile.lastLoginAt,
+      lastActivityAt: now
+    };
+
+    try {
+      await window.db.put('profiles', updatedProfile);
+      return updatedProfile;
+    } catch (err) {
+      console.warn('[Help Vitall][Auth] Não foi possível atualizar último acesso do perfil.', err);
+      return profile;
     }
   }
 
@@ -3603,11 +3700,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Supabase mode
     try {
-      return await window.db.get('profiles', user.id);
+      const profile = await window.db.get('profiles', user.id);
+      if (profile) {
+        return normalizeAccessProfile(profile);
+      }
+
+      const visibleProfiles = await window.db.getAll('profiles');
+      const emailMatches = visibleProfiles.filter(profile => {
+        return String(profile.email || '').toLowerCase() === String(user.email || '').toLowerCase();
+      });
+
+      if (emailMatches.length > 1) {
+        throw new Error('Existe mais de um perfil cadastrado para este e-mail. Verifique a tabela profiles no Supabase.');
+      }
+
+      if (emailMatches.length === 1) {
+        return normalizeAccessProfile(emailMatches[0]);
+      }
+
+      return null;
     } catch (err) {
       console.error('Error loading user profile:', err);
+      throw new Error('Não foi possível carregar seu perfil de acesso. Verifique se este usuário foi cadastrado como admin ou funcionário.');
     }
-    return null;
   }
 
   async function checkSession() {
@@ -3634,13 +3749,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const profile = await loadUserProfile(user);
         
         if (!profile) {
-          showToast('Nenhum perfil encontrado para esta conta.', 'error');
+          showToast('Perfil de acesso não encontrado. Verifique se este usuário foi cadastrado como admin ou funcionário.', 'error');
           await supabase.auth.signOut();
           return false;
         }
         
         if (profile.status === 'inactive') {
-          showToast('Esta conta foi desativada pelo administrador.', 'error');
+          showToast('Seu acesso está desativado. Fale com o administrador.', 'error');
           await supabase.auth.signOut();
           return false;
         }
@@ -3655,8 +3770,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyRolePermissions();
         
         // Update last activity
-        profile.last_activity_at = new Date().toISOString();
-        await window.db.put('profiles', profile);
+        await saveProfileAccessTimestamps(profile);
         
         return true;
       }
@@ -3710,11 +3824,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       applyRolePermissions();
       
-      profile.last_login_at = new Date().toISOString();
-      profile.last_activity_at = new Date().toISOString();
-      await window.db.put('profiles', profile);
+      await saveProfileAccessTimestamps(profile, { login: true });
       
-      await logActivity('LOGIN', `Funcionário ${profile.name} fez login no painel local.`);
+      await logActivity('LOGIN', `${getDisplayUserRole(profile.role)} ${profile.name} fez login no painel local.`, 'auth', profile.id, profile.name || profile.email);
 
       return authState.user;
     }
@@ -3733,12 +3845,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!profile) {
       await supabase.auth.signOut();
-      throw new Error('Nenhum perfil correspondente encontrado no Supabase.');
+      throw new Error('Perfil de acesso não encontrado. Verifique se este usuário foi cadastrado como admin ou funcionário.');
     }
 
     if (profile.status === 'inactive') {
       await supabase.auth.signOut();
-      throw new Error('Esta conta foi desativada pelo administrador.');
+      throw new Error('Seu acesso está desativado. Fale com o administrador.');
     }
 
     authState.user = { 
@@ -3751,18 +3863,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     applyRolePermissions();
 
-    profile.last_login_at = new Date().toISOString();
-    profile.last_activity_at = new Date().toISOString();
-    await window.db.put('profiles', profile);
+    await saveProfileAccessTimestamps(profile, { login: true });
 
-    await logActivity('LOGIN', `Funcionário ${profile.name} fez login no painel.`);
+    await logActivity('LOGIN', `${getDisplayUserRole(profile.role)} ${profile.name} fez login no painel.`, 'auth', profile.id, profile.name || profile.email);
 
     return authState.user;
   }
 
   async function logoutUser() {
     if (authState.user) {
-      await logActivity('LOGOUT', `Funcionário ${authState.user.name} saiu do painel.`);
+      await logActivity('LOGOUT', `${getDisplayUserRole(authState.user.role)} ${authState.user.name} saiu do painel.`, 'auth', authState.user.profileId || authState.user.id, authState.user.name || authState.user.email);
     }
     if (supabase) {
       try {
@@ -3805,7 +3915,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('Bem-vindo ao Help Vitall!');
       await loadMainSystemData();
     } catch (err) {
-      elements.loginErrorMsg.textContent = err.message;
+      console.error('[Help Vitall][Auth] Login error:', err);
+      elements.loginErrorMsg.textContent = getFriendlyAuthErrorMessage(err);
       elements.loginErrorMsg.style.display = 'block';
     } finally {
       elements.loginSpinner.style.display = 'none';
@@ -3908,7 +4019,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       profile.status = newStatus;
       await window.db.put('profiles', profile);
       showToast(`Funcionário ${actionLabel} com sucesso!`);
-      await logActivity('STATUS_CHANGE', `Alterou status do funcionário ${profile.name} para ${newStatus}`);
+      await logActivity('STATUS_CHANGE', `Alterou status do funcionário ${profile.name} para ${newStatus}`, 'profiles', profile.id, profile.name || profile.email);
       await loadViewData('employees');
     } catch (err) {
       showToast('Erro ao atualizar status do funcionário.', 'error');
@@ -3924,10 +4035,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const todayStr = new Date().toISOString().split('T')[0];
 
     const filtered = state.profiles.filter(profile => {
+      if (!isEmployeeRole(profile.role)) return false;
+      const profileName = String(profile.name || profile.fullName || '');
+      const profileEmail = String(profile.email || '');
+      const profilePosition = String(profile.position || '');
       const matchesSearch = !searchQuery ||
-        profile.name.toLowerCase().includes(searchQuery) ||
-        profile.email.toLowerCase().includes(searchQuery) ||
-        (profile.position && profile.position.toLowerCase().includes(searchQuery));
+        profileName.toLowerCase().includes(searchQuery) ||
+        profileEmail.toLowerCase().includes(searchQuery) ||
+        profilePosition.toLowerCase().includes(searchQuery);
       return matchesSearch;
     });
 
@@ -3964,8 +4079,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHTML(profile.phone || '-')}</div>
         </td>
         <td><span class="badge ${statusBadge}">${statusLabel}</span></td>
-        <td>${profile.last_login_at ? formatDateDisplay(profile.last_login_at.split('T')[0]) + ' ' + new Date(profile.last_login_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Nunca'}</td>
-        <td>${profile.last_activity_at ? formatDateDisplay(profile.last_activity_at.split('T')[0]) + ' ' + new Date(profile.last_activity_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Nunca'}</td>
+        <td>${formatDateTimeLabel(profile.lastLoginAt || profile.last_login_at, 'Nunca')}</td>
+        <td>${formatDateTimeLabel(profile.lastActivityAt || profile.last_activity_at, 'Nunca')}</td>
         <td><span class="badge badge-neutral">${manualCount}</span></td>
         <td><span class="badge badge-neutral">${importCount}</span></td>
         <td>
@@ -4015,6 +4130,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     return labels[actionType] || actionType || '-';
   }
 
+  function getActivityTargetTypeLabel(targetType) {
+    const normalized = normalizeImportText(targetType);
+    const labels = {
+      auth: 'Autenticação',
+      clients: 'Clientes',
+      client: 'Clientes',
+      cliente: 'Clientes',
+      profiles: 'Funcionários',
+      profile: 'Funcionários',
+      funcionario: 'Funcionários',
+      employee: 'Funcionários',
+      employees: 'Funcionários',
+      spreadsheet_imports: 'Importação de planilha',
+      importacao: 'Importação de planilha',
+      import: 'Importação de planilha'
+    };
+    return labels[normalized] || targetType || '-';
+  }
+
+  function getActivityTargetName(log) {
+    if (log.targetName) return log.targetName;
+
+    const targetType = log.targetType || log.entityType || '';
+    const targetId = log.targetId || log.entityId;
+    const normalizedType = normalizeImportText(targetType);
+
+    if (!targetId) return '-';
+
+    if (['clients', 'client', 'cliente'].includes(normalizedType)) {
+      const client = state.clients.find(c => String(c.id) === String(targetId));
+      return client?.name || `Cliente ${targetId}`;
+    }
+
+    if (['profiles', 'profile', 'funcionario', 'employee', 'employees'].includes(normalizedType)) {
+      const profile = state.profiles.find(p => String(p.id) === String(targetId));
+      return profile?.name || profile?.email || `Funcionário ${targetId}`;
+    }
+
+    if (normalizedType === 'auth') {
+      const profile = state.profiles.find(p => String(p.id) === String(targetId));
+      return profile?.email || profile?.name || `Usuário ${targetId}`;
+    }
+
+    return `${getActivityTargetTypeLabel(targetType)} ${targetId}`;
+  }
+
   function renderEmployeeActivityLogs() {
     const tableBody = document.getElementById('employeeActivityLogsTableBody');
     if (!tableBody) return;
@@ -4026,23 +4187,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       .slice(0, 50);
 
     if (logs.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma atividade registrada</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="7" class="table-empty">Nenhuma atividade registrada</td></tr>';
       return;
     }
 
     logs.forEach(log => {
-      const profile = state.profiles.find(p => String(p.id) === String(log.employeeId));
-      const logDate = log.createdAt ? new Date(log.createdAt) : null;
-      const dateLabel = logDate && !isNaN(logDate)
-        ? `${formatDateDisplay(logDate.toISOString().split('T')[0])} ${logDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-        : '-';
+      const actorId = log.actorUserId || log.employeeId;
+      const actorProfile = state.profiles.find(p => String(p.id) === String(actorId));
+      const actorEmail = log.actorEmail || actorProfile?.email || actorProfile?.name || 'Sistema';
+      const actorRoleLabel = getDisplayUserRole(log.actorRole || actorProfile?.role || 'funcionario');
+      const targetType = log.targetType || log.entityType || '';
+      const targetName = getActivityTargetName(log);
+      const dateLabel = formatDateTimeLabel(log.createdAt);
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${dateLabel}</td>
-        <td>${escapeHTML(profile?.name || profile?.email || 'Sistema')}</td>
+        <td>${escapeHTML(actorEmail)}</td>
+        <td><span class="badge badge-neutral">${escapeHTML(actorRoleLabel)}</span></td>
         <td><span class="badge badge-neutral">${escapeHTML(getActivityLabel(log.actionType))}</span></td>
+        <td>${escapeHTML(targetName)}</td>
         <td>${escapeHTML(log.description || '-')}</td>
-        <td>${escapeHTML(log.entityType || '-')}</td>
+        <td>${escapeHTML(getActivityTargetTypeLabel(targetType))}</td>
       `;
       tableBody.appendChild(row);
     });
@@ -4073,6 +4238,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       if (editingEmployeeId) {
         const originalProfile = state.profiles.find(p => String(p.id) === String(editingEmployeeId));
+        if (!originalProfile || !isEmployeeRole(originalProfile.role)) {
+          showToast('Este perfil não é um funcionário.', 'error');
+          return;
+        }
         const updatedProfile = {
           ...originalProfile,
           name,
@@ -4084,11 +4253,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         await window.db.put('profiles', updatedProfile);
         showToast('Funcionário atualizado com sucesso!');
-        await logActivity('EDIT_EMPLOYEE', `Editou os dados do funcionário ${name}`);
+        await logActivity('EDIT_EMPLOYEE', `Editou os dados do funcionário ${name}`, 'profiles', editingEmployeeId, name || email);
       } else {
         const emailExists = state.profiles.some(p => p.email.toLowerCase() === email);
         if (emailExists) {
           const existingProfile = state.profiles.find(p => p.email.toLowerCase() === email);
+          if (!isEmployeeRole(existingProfile.role)) {
+            showToast('Este e-mail pertence ao administrador e não pode ser usado como funcionário.', 'error');
+            return;
+          }
           await window.db.put('profiles', {
             ...existingProfile,
             name,
@@ -4100,7 +4273,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             updatedAt: new Date().toISOString()
           });
           showToast('Perfil do funcionário atualizado com sucesso!');
-          await logActivity('EDIT_EMPLOYEE', `Atualizou o perfil do funcionário ${name}`);
+          await logActivity('EDIT_EMPLOYEE', `Atualizou o perfil do funcionário ${name}`, 'profiles', existingProfile.id, name || email);
           closeEmployeeModal();
           await loadViewData('employees');
           return;
@@ -4128,7 +4301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const newId = await window.db.add('profiles', profileData);
         showToast('Funcionário cadastrado com sucesso!');
-        await logActivity('CREATE_EMPLOYEE', `Cadastrou o funcionário ${name}`);
+        await logActivity('CREATE_EMPLOYEE', `Cadastrou o funcionário ${name}`, 'profiles', newId, name || email);
       }
 
       closeEmployeeModal();

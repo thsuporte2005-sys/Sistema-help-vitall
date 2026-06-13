@@ -93,13 +93,23 @@ function toDbRow(storeName, item) {
   }
 
   if (storeName === 'employee_activity_logs') {
+    const targetId = clean.targetId || clean.target_id || (clean.entityId ? String(clean.entityId) : null);
+    const numericEntityId = Number(targetId);
+    const entityId = Number.isFinite(numericEntityId) ? numericEntityId : (clean.entityId || null);
+
     return {
       id: clean.id,
       employee_id: clean.employeeId || null,
+      actor_user_id: clean.actorUserId || clean.actor_user_id || clean.employeeId || null,
+      actor_email: clean.actorEmail || clean.actor_email || '',
+      actor_role: clean.actorRole || clean.actor_role || '',
       action_type: clean.actionType || '',
       description: clean.description || '',
-      entity_type: clean.entityType || '',
-      entity_id: clean.entityId || null,
+      entity_type: clean.entityType || clean.targetType || '',
+      entity_id: entityId,
+      target_type: clean.targetType || clean.target_type || clean.entityType || '',
+      target_id: targetId,
+      target_name: clean.targetName || clean.target_name || '',
       created_at: clean.createdAt || new Date().toISOString(),
       ip_address: clean.ipAddress || '',
       user_agent: clean.userAgent || ''
@@ -236,10 +246,16 @@ function fromDbRow(storeName, row) {
     return {
       id: row.id,
       employeeId: row.employee_id || null,
+      actorUserId: row.actor_user_id || row.employee_id || null,
+      actorEmail: row.actor_email || '',
+      actorRole: row.actor_role || '',
       actionType: row.action_type || '',
       description: row.description || '',
       entityType: row.entity_type || '',
       entityId: row.entity_id || null,
+      targetType: row.target_type || row.entity_type || '',
+      targetId: row.target_id || (row.entity_id ? String(row.entity_id) : null),
+      targetName: row.target_name || '',
       createdAt: row.created_at || '',
       ipAddress: row.ip_address || '',
       userAgent: row.user_agent || ''
@@ -492,9 +508,12 @@ class HelpVitallDB {
         .update(row)
         .eq(idColumn, row[idColumn])
         .select('*')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error(`Nenhum registro encontrado ou sem permissão para atualizar ${storeName}.`);
+      }
       return data?.id || data?.key;
     }
 
