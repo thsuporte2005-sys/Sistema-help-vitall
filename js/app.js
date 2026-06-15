@@ -1260,8 +1260,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Find Max absolute profit to set Y Scale symmetrically
     const maxVal = Math.max(...dailyData.map(d => Math.abs(d.profit)), 100);
 
-    // Render SVG
-    let svgContent = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">`;
+    // Render SVG with defs for gradients
+    let svgContent = `
+      <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">
+        <defs>
+          <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#10b981" />
+            <stop offset="100%" stop-color="#059669" />
+          </linearGradient>
+          <linearGradient id="lossGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ef4444" />
+            <stop offset="100%" stop-color="#dc2626" />
+          </linearGradient>
+        </defs>
+    `;
     
     // Axes line & Baseline (0 profit)
     const zeroY = padding.top + (height - padding.top - padding.bottom) / 2;
@@ -1275,12 +1287,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const profitLabel = maxVal - ((maxVal * 2) / (gridLines - 1)) * i;
       svgContent += `
         <line x1="${padding.left}" y1="${yVal}" x2="${width - padding.right}" y2="${yVal}" stroke="var(--border-color)" stroke-dasharray="4,4" stroke-width="1" />
-        <text x="${padding.left - 10}" y="${yVal + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${formatCurrency(profitLabel)}</text>
+        <text x="${padding.left - 10}" y="${yVal + 4}" fill="var(--text-muted)" font-size="10" font-weight="500" text-anchor="end">${formatCurrency(profitLabel)}</text>
       `;
     }
 
     // Draw baseline 0 (darker line)
-    svgContent += `<line x1="${padding.left}" y1="${zeroY}" x2="${width - padding.right}" y2="${zeroY}" stroke="var(--text-muted)" stroke-width="1.5" opacity="0.6"/>`;
+    svgContent += `<line x1="${padding.left}" y1="${zeroY}" x2="${width - padding.right}" y2="${zeroY}" stroke="var(--text-muted)" stroke-width="1.5" opacity="0.4"/>`;
 
     // Compute Bar spacing
     const barWidth = Math.max(2, Math.min(40, (graphWidth / dailyData.length) * 0.6));
@@ -1293,15 +1305,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       let y = zeroY;
       let barH = profitHeight;
-      let barClass = 'legend-green';
-      let fillColor = 'var(--color-green-500)';
+      let fillColor = 'url(#profitGrad)';
 
       if (day.profit >= 0) {
         y = zeroY - profitHeight;
-        fillColor = 'var(--color-green-500)';
+        fillColor = 'url(#profitGrad)';
       } else {
         y = zeroY;
-        fillColor = 'var(--color-red-500)';
+        fillColor = 'url(#lossGrad)';
       }
 
       // Safeguard height
@@ -1309,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Draw SVG Rect
       svgContent += `
-        <rect x="${x}" y="${y}" width="${barWidth}" height="${barH}" rx="3" fill="${fillColor}" opacity="0.85" style="cursor: pointer; transition: opacity 0.15s;" 
+        <rect x="${x}" y="${y}" width="${barWidth}" height="${barH}" rx="4" ry="4" fill="${fillColor}" opacity="0.85" style="cursor: pointer; transition: all 0.2s ease;" 
           data-date="${day.displayDate}"
           data-profit="${formatCurrency(day.profit)}"
           data-fat="${formatCurrency(day.faturamento)}"
@@ -1326,7 +1337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dateParts = day.dateStr.split('-');
         const shortDate = `${dateParts[2]}/${dateParts[1]}`;
         svgContent += `
-          <text x="${x + barWidth / 2}" y="${height - 15}" fill="var(--text-muted)" font-size="9" text-anchor="middle">${shortDate}</text>
+          <text x="${x + barWidth / 2}" y="${height - 15}" fill="var(--text-muted)" font-size="9" font-weight="500" text-anchor="middle">${shortDate}</text>
         `;
       }
     });
@@ -4792,6 +4803,57 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('empKpiAddedTodayVal').textContent = addedToday;
     document.getElementById('empKpiImportedTodayVal').textContent = importedToday;
+
+    const statusSummaryBody = document.getElementById('empDashboardStatusSummaryBody');
+    if (statusSummaryBody) {
+      const statusRows = [
+        { label: 'Pago', count: paidCount, badge: 'badge-success' },
+        { label: 'Pagamento pendente', count: pendingCount, badge: 'badge-warning' },
+        { label: 'Golpe', count: scamCount, badge: 'badge-danger' }
+      ];
+
+      if (totalClients === 0) {
+        statusSummaryBody.innerHTML = '<tr><td colspan="3" class="table-empty">Sem dados</td></tr>';
+      } else {
+        statusSummaryBody.innerHTML = statusRows.map(row => {
+          const percent = ((row.count / totalClients) * 100).toFixed(1);
+          return `
+            <tr>
+              <td><span class="badge ${row.badge}">${escapeHTML(row.label)}</span></td>
+              <td>${row.count}</td>
+              <td>${percent}%</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    const recentUpdatesBody = document.getElementById('empDashboardRecentUpdatesBody');
+    if (recentUpdatesBody) {
+      const recentUpdates = [...periodClients]
+        .sort((a, b) => new Date((b.date || '') + 'T12:00:00') - new Date((a.date || '') + 'T12:00:00'))
+        .slice(0, 5);
+
+      if (recentUpdates.length === 0) {
+        recentUpdatesBody.innerHTML = '<tr><td colspan="4" class="table-empty">Sem atualizações</td></tr>';
+      } else {
+        recentUpdatesBody.innerHTML = recentUpdates.map(client => {
+          let statusBadge = 'badge-neutral';
+          if (client.status === 'Pago') statusBadge = 'badge-success';
+          else if (client.status === 'Golpe') statusBadge = 'badge-danger';
+          else if (client.status === 'Pagamento pendente') statusBadge = 'badge-warning';
+
+          return `
+            <tr>
+              <td>${getClientDisplayDate(client.date)}</td>
+              <td><strong>${escapeHTML(client.name)}</strong></td>
+              <td><span class="badge ${statusBadge}">${escapeHTML(client.status)}</span></td>
+              <td>${client.creationSource === 'spreadsheet' ? 'Planilha' : 'Manual'}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
 
     const productPerformance = {};
     periodClients.forEach(c => {

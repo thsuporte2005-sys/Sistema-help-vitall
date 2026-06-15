@@ -207,7 +207,7 @@
           </div>
 
           <!-- Card 5: Clientes Pagos -->
-          <div class="kpi-card kpi-revenue">
+          <div class="kpi-card kpi-paid">
             <div class="kpi-card-header">
               <span class="kpi-title">Clientes Pagos</span>
               <div class="kpi-icon-wrapper">
@@ -231,7 +231,7 @@
           </div>
 
           <!-- Card 7: Clientes Golpe -->
-          <div class="kpi-card kpi-loss">
+          <div class="kpi-card kpi-scam">
             <div class="kpi-card-header">
               <span class="kpi-title">Golpes</span>
               <div class="kpi-icon-wrapper">
@@ -771,7 +771,7 @@
             <div class="kpi-header">
               <span class="kpi-title">Total de Clientes</span>
               <div class="kpi-icon-wrapper">
-                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
               </div>
             </div>
             <div class="kpi-value" id="empKpiTotalClientsVal">0</div>
@@ -783,7 +783,7 @@
             <div class="kpi-header">
               <span class="kpi-title">Clientes Pagos</span>
               <div class="kpi-icon-wrapper">
-                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               </div>
             </div>
             <div class="kpi-value" id="empKpiPaidClientsVal">0</div>
@@ -795,7 +795,7 @@
             <div class="kpi-header">
               <span class="kpi-title">Clientes Pendentes</span>
               <div class="kpi-icon-wrapper">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
             </div>
             <div class="kpi-value" id="empKpiPendingClientsVal">0</div>
@@ -807,7 +807,7 @@
             <div class="kpi-header">
               <span class="kpi-title">Clientes Golpe</span>
               <div class="kpi-icon-wrapper">
-                <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
             </div>
             <div class="kpi-value" id="empKpiScamClientsVal">0</div>
@@ -817,11 +817,11 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
           <!-- Card: Cadastros Hoje -->
-          <div class="kpi-card">
+          <div class="kpi-card kpi-added">
             <div class="kpi-header">
               <span class="kpi-title">Adicionados Hoje (Manual)</span>
-              <div class="kpi-icon-wrapper" style="background: rgba(59, 130, 246, 0.1); color: var(--color-blue-500);">
-                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              <div class="kpi-icon-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               </div>
             </div>
             <div class="kpi-value" id="empKpiAddedTodayVal">0</div>
@@ -829,11 +829,11 @@
           </div>
 
           <!-- Card: Importados Hoje -->
-          <div class="kpi-card">
+          <div class="kpi-card kpi-imported">
             <div class="kpi-header">
               <span class="kpi-title">Importados Hoje (Planilha)</span>
-              <div class="kpi-icon-wrapper" style="background: rgba(139, 92, 246, 0.1); color: var(--color-purple-500);">
-                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+              <div class="kpi-icon-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
               </div>
             </div>
             <div class="kpi-value" id="empKpiImportedTodayVal">0</div>
@@ -841,46 +841,94 @@
           </div>
         </div>
 
+        <!-- Status summary and updates -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 24px;">
+          <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px;">Resumo por Status</h3>
+            <div class="table-scroll">
+              <table class="data-table" style="font-size: 0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Clientes</th>
+                    <th>Percentual</th>
+                  </tr>
+                </thead>
+                <tbody id="empDashboardStatusSummaryBody">
+                  <tr>
+                    <td colspan="3" class="table-empty">Sem dados</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px;">Atualizações Recentes</h3>
+            <div class="table-scroll">
+              <table class="data-table" style="font-size: 0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Registro</th>
+                    <th>Status</th>
+                    <th>Origem</th>
+                  </tr>
+                </thead>
+                <tbody id="empDashboardRecentUpdatesBody">
+                  <tr>
+                    <td colspan="4" class="table-empty">Sem atualizações</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Performance grid -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 24px;">
           <!-- Product performance -->
           <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
             <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px;">Desempenho por Produto</h3>
-            <table class="data-table" style="font-size: 0.85rem;">
-              <thead>
-                <tr>
-                  <th>Produto</th>
-                  <th>Vendas</th>
-                  <th>Faturamento</th>
-                  <th>Conversão</th>
-                </tr>
-              </thead>
-              <tbody id="empDashboardProductTableBody">
-                <tr>
-                  <td colspan="4" class="table-empty">Sem dados</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="data-table" style="font-size: 0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Vendas</th>
+                    <th>Faturamento</th>
+                    <th>Conversão</th>
+                  </tr>
+                </thead>
+                <tbody id="empDashboardProductTableBody">
+                  <tr>
+                    <td colspan="4" class="table-empty">Sem dados</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <!-- Attendant performance -->
           <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
             <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px;">Desempenho por Vendedor</h3>
-            <table class="data-table" style="font-size: 0.85rem;">
-              <thead>
-                <tr>
-                  <th>Vendedor</th>
-                  <th>Vendas</th>
-                  <th>Faturamento</th>
-                  <th>Conversão</th>
-                </tr>
-              </thead>
-              <tbody id="empDashboardAttendantTableBody">
-                <tr>
-                  <td colspan="4" class="table-empty">Sem dados</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="data-table" style="font-size: 0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Vendedor</th>
+                    <th>Vendas</th>
+                    <th>Faturamento</th>
+                    <th>Conversão</th>
+                  </tr>
+                </thead>
+                <tbody id="empDashboardAttendantTableBody">
+                  <tr>
+                    <td colspan="4" class="table-empty">Sem dados</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
