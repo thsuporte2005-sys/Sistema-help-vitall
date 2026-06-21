@@ -18,7 +18,7 @@ if (missing.length > 0) {
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
-for (const entry of ['index.html', 'css', 'js', 'Pngss']) {
+for (const entry of ['index.html', 'css', 'js', 'Pngss', 'manifest.json', 'sw.js']) {
   fs.cpSync(path.join(rootDir, entry), path.join(outDir, entry), { recursive: true });
 }
 

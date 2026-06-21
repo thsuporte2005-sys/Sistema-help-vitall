@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'HelpVitallDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 const SUPABASE_CONFIG = window.HELP_VITALL_ENV || {};
 const SUPABASE_URL = SUPABASE_CONFIG.NEXT_PUBLIC_SUPABASE_URL || SUPABASE_CONFIG.SUPABASE_URL || '';
@@ -18,7 +18,8 @@ const TABLE_MAP = {
   spreadsheet_imports: 'spreadsheet_imports',
   product_cost_rules: 'product_cost_rules',
   profiles: 'profiles',
-  employee_activity_logs: 'employee_activity_logs'
+  employee_activity_logs: 'employee_activity_logs',
+  notifications: 'notifications'
 };
 
 function removeEmptyId(item) {
@@ -72,7 +73,11 @@ function toDbRow(storeName, item) {
       payment_method: clean.paymentMethod || '',
       created_by_id: clean.createdById || null,
       created_by_name: clean.createdByName || '',
-      creation_source: clean.creationSource || 'manual'
+      creation_source: clean.creationSource || 'manual',
+      blacklisted_at: clean.blacklistedAt || null,
+      blacklisted_by_id: clean.blacklistedById || null,
+      blacklisted_by_name: clean.blacklistedByName || null,
+      blacklist_reason: clean.blacklistReason || ''
     };
   }
 
@@ -176,6 +181,25 @@ function toDbRow(storeName, item) {
     };
   }
 
+  if (storeName === 'notifications') {
+    return {
+      id: clean.id,
+      user_id: clean.userId || null,
+      role_target: clean.roleTarget || 'all',
+      title: clean.title || '',
+      message: clean.message || '',
+      type: clean.type || 'info',
+      priority: clean.priority || 'normal',
+      entity_type: clean.entityType || '',
+      entity_id: clean.entityId || null,
+      is_read: clean.isRead !== undefined ? Boolean(clean.isRead) : false,
+      created_at: clean.createdAt || new Date().toISOString(),
+      read_at: clean.readAt || null,
+      created_by: clean.createdBy || '',
+      metadata: clean.metadata || {}
+    };
+  }
+
   return clean;
 }
 
@@ -222,7 +246,11 @@ function fromDbRow(storeName, row) {
       paymentMethod: row.payment_method || '',
       createdById: row.created_by_id || null,
       createdByName: row.created_by_name || '',
-      creationSource: row.creation_source || 'manual'
+      creationSource: row.creation_source || 'manual',
+      blacklistedAt: row.blacklisted_at || null,
+      blacklistedById: row.blacklisted_by_id || null,
+      blacklistedByName: row.blacklisted_by_name || null,
+      blacklistReason: row.blacklist_reason || ''
     };
   }
 
@@ -324,6 +352,25 @@ function fromDbRow(storeName, row) {
     };
   }
 
+  if (storeName === 'notifications') {
+    return {
+      id: row.id,
+      userId: row.user_id || null,
+      roleTarget: row.role_target || 'all',
+      title: row.title || '',
+      message: row.message || '',
+      type: row.type || 'info',
+      priority: row.priority || 'normal',
+      entityType: row.entity_type || '',
+      entityId: row.entity_id || null,
+      isRead: Boolean(row.is_read),
+      createdAt: row.created_at || '',
+      readAt: row.read_at || null,
+      createdBy: row.created_by || '',
+      metadata: row.metadata || {}
+    };
+  }
+
   return row;
 }
 
@@ -408,6 +455,12 @@ class HelpVitallDB {
 
         if (!db.objectStoreNames.contains('employee_activity_logs')) {
           db.createObjectStore('employee_activity_logs', { keyPath: 'id', autoIncrement: true });
+        }
+
+        if (!db.objectStoreNames.contains('notifications')) {
+          const notificationStore = db.createObjectStore('notifications', { keyPath: 'id', autoIncrement: true });
+          notificationStore.createIndex('roleTarget', 'roleTarget', { unique: false });
+          notificationStore.createIndex('isRead', 'isRead', { unique: false });
         }
       };
     });

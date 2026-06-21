@@ -6,6 +6,24 @@
   <title>Help Vitall - CRM & Gestão Financeira</title>
   <link rel="icon" type="image/png" href="Pngss/logo.png">
   <link rel="stylesheet" href="css/style.css">
+  
+  <!-- PWA Support -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Help Vitall">
+  <link rel="apple-touch-icon" href="Pngss/logo.png">
+  <meta name="theme-color" content="#10b981">
+  
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+  </script>
 </head>
 <body class="theme-system">
 
@@ -63,6 +81,12 @@
           Clientes
         </a>
       </li>
+      <li class="sidebar-item" data-view="blacklist">
+        <a>
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          Black List
+        </a>
+      </li>
       <li class="sidebar-item" data-view="products">
         <a>
           <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -113,6 +137,42 @@
         <h1 class="page-title" id="currentViewTitle">Dashboard</h1>
       </div>
       <div class="header-actions">
+        <!-- Notification Bell Wrapper -->
+        <div class="notification-bell-container">
+          <button class="notification-bell-btn" id="notificationBellBtn" aria-label="Notificações">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+          </button>
+          
+          <!-- Dropdown Menu / Popover Panel -->
+          <div class="notification-dropdown" id="notificationDropdown">
+            <div class="notification-dropdown-header">
+              <h3>Notificações</h3>
+              <button class="btn-text" id="btnMarkAllRead">Marcar todas como lidas</button>
+            </div>
+            
+            <div class="notification-dropdown-filters">
+              <button class="filter-tab active" data-filter="all">Todas</button>
+              <button class="filter-tab" data-filter="unread">Não lidas</button>
+              <button class="filter-tab" data-filter="clients">Clientes</button>
+              <button class="filter-tab" data-filter="blacklist">Black List</button>
+              <button class="filter-tab" data-filter="imports">Importações</button>
+              <button class="filter-tab" data-filter="alerts">Alertas/Erros</button>
+            </div>
+            
+            <div class="notification-dropdown-list" id="notificationDropdownList">
+              <div class="notification-empty">Sem notificações no momento.</div>
+            </div>
+            
+            <div class="notification-dropdown-footer">
+              <button class="btn-text" id="btnClearAllNotifications" style="color: #ef4444;">Limpar todas</button>
+            </div>
+          </div>
+        </div>
+
         <div class="header-user-profile" id="headerUserProfile" style="display: none;">
           <span class="user-greeting">Olá, <strong id="headerUserEmail"></strong> (<span id="headerUserRole"></span>)</span>
           <button id="btnHeaderLogout" class="btn-logout" title="Sair do Sistema">
@@ -312,11 +372,21 @@
       <section class="page-view" id="view-clients">
         <div class="data-table-container">
           <div class="table-header-bar">
-            <div class="search-input-wrapper">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <input type="text" class="search-input" id="searchClientsInput" placeholder="Buscar clientes por nome, tel, país...">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div class="search-input-wrapper">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" class="search-input" id="searchClientsInput" placeholder="Buscar clientes por nome, tel, país...">
+              </div>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer; user-select: none; white-space: nowrap;">
+                <input type="checkbox" id="chkShowBlacklistInClients" style="width: 16px; height: 16px; accent-color: var(--color-green-500);">
+                Mostrar Black List
+              </label>
             </div>
             <div style="display: flex; gap: 10px;">
+              <button class="btn btn-secondary" id="btnOpenTextImportModal" style="display: flex; align-items: center; gap: 6px;">
+                <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Colar Ordem
+              </button>
               <button class="btn btn-secondary" id="btnOpenImportModal" style="display: flex; align-items: center; gap: 6px;">
                 <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Importar Planilha
@@ -351,7 +421,128 @@
             </table>
           </div>
         </div>
+      </section>
 
+      <!-- ==========================================================================
+           2B. BLACK LIST VIEW
+           ========================================================================== -->
+      <section class="page-view" id="view-blacklist">
+        <!-- Period/Search Filters -->
+        <div class="dashboard-controls" style="margin-bottom: 20px;">
+          <div class="filter-group">
+            <div class="search-input-wrapper">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" class="search-input" id="searchBlacklistInput" placeholder="Buscar na Black List por nome, tel, motivo...">
+            </div>
+            
+            <select class="select-filter" id="blacklistPeriodFilter">
+              <option value="all" selected>Todo o período</option>
+              <option value="today">Hoje</option>
+              <option value="yesterday">Ontem</option>
+              <option value="7days">Últimos 7 dias</option>
+              <option value="30days">Últimos 30 dias</option>
+              <option value="custom">Período personalizado</option>
+            </select>
+
+            <div class="custom-date-range" id="blacklistCustomDateRangeWrapper" style="display: none;">
+              <input type="date" class="date-filter-input" id="blacklistStartDate">
+              <span style="color: var(--text-secondary); font-size: 0.85rem;">até</span>
+              <input type="date" class="date-filter-input" id="blacklistEndDate">
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Cards Grid -->
+        <div class="stats-grid" style="margin-bottom: 25px;">
+          <!-- Card 1: Total na Black List -->
+          <div class="kpi-card" style="border-left: 4px solid #ef4444;">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Total na Black List</span>
+              <div class="kpi-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiBlacklistTotal">0</div>
+            <div class="kpi-subtitle">Clientes marcados como golpe</div>
+          </div>
+
+          <!-- Card 2: Valor Total em Prejuízo -->
+          <div class="kpi-card" style="border-left: 4px solid #ef4444;">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Prejuízo Total</span>
+              <div class="kpi-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiBlacklistPrejuizo">$0.00</div>
+            <div class="kpi-subtitle">Valor total de vendas perdidas</div>
+          </div>
+
+          <!-- Card 3: Adicionados Hoje -->
+          <div class="kpi-card" style="border-left: 4px solid #ef4444;">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Adicionados Hoje</span>
+              <div class="kpi-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiBlacklistHoje">0</div>
+            <div class="kpi-subtitle">Registros inseridos hoje</div>
+          </div>
+
+          <!-- Card 4: Produto com mais Golpes -->
+          <div class="kpi-card" style="border-left: 4px solid #ef4444;">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Produto Mais Afetado</span>
+              <div class="kpi-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" style="font-size: 1.4rem;" id="kpiBlacklistProduto">Nenhum</div>
+            <div class="kpi-subtitle">Produto com mais ocorrências</div>
+          </div>
+
+          <!-- Card 5: Vendedor com mais Golpes -->
+          <div class="kpi-card" style="border-left: 4px solid #ef4444;">
+            <div class="kpi-card-header">
+              <span class="kpi-title">Vendedor Mais Afetado</span>
+              <div class="kpi-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" style="font-size: 1.4rem;" id="kpiBlacklistVendedor">Nenhum</div>
+            <div class="kpi-subtitle">Vendedor com mais registros</div>
+          </div>
+        </div>
+
+        <div class="data-table-container">
+          <div class="table-scroll" style="overflow: auto;">
+            <table class="data-table" style="min-width: 1700px;">
+              <thead>
+                <tr>
+                  <th style="width: 100px; text-align: center;">Ações</th>
+                  <th style="width: 60px; text-align: center;">Status</th>
+                  <th>Nome do Cliente</th>
+                  <th>Telefone</th>
+                  <th>Produto</th>
+                  <th>Plano</th>
+                  <th>Valor</th>
+                  <th>Vendedor</th>
+                  <th>Data Pedido</th>
+                  <th>Data Golpe</th>
+                  <th>Quem Marcou</th>
+                  <th>Motivo do Golpe</th>
+                  <th>Observações</th>
+                </tr>
+              </thead>
+              <tbody id="blacklistTableBody">
+                <tr>
+                  <td colspan="13" class="table-empty">Nenhum registro encontrado na Black List.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- ==========================================================================
@@ -513,6 +704,23 @@
               <span style="color: var(--text-secondary); font-size: 0.85rem;">até</span>
               <input type="date" class="date-filter-input" id="reportsEndDate">
             </div>
+          </div>
+        </div>
+
+        <!-- Resumo Diário Section -->
+        <div class="card" style="padding: 24px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); margin-bottom: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.3rem;">📊</span>
+              <h2 style="font-size: 1.1rem; font-weight: 600; margin: 0;">Resumo Diário</h2>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;" id="dailySummaryDate">
+              Carregando data...
+            </div>
+          </div>
+          
+          <div id="dailySummaryContent">
+            <p style="color: var(--text-secondary); text-align: center; font-size: 0.85rem;">Carregando resumo diário...</p>
           </div>
         </div>
 
@@ -1203,6 +1411,47 @@
     </div>
   </div>
 
+  <!-- Modal: Blacklist Edit/Detail -->
+  <div class="modal-backdrop" id="blacklistModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title" id="blacklistModalTitle">Detalhes do Registro - Black List</h3>
+        <button class="modal-close" id="btnCloseBlacklistModal" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="blacklistForm">
+        <input type="hidden" id="blacklistClientId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group col-span-2">
+              <label class="form-label">Cliente</label>
+              <input type="text" class="form-input" id="blacklistClientName" readonly style="background-color: var(--bg-secondary); cursor: not-allowed;">
+            </div>
+            <div class="form-group col-span-2">
+              <label class="form-label">Motivo do Golpe</label>
+              <input type="text" class="form-input" id="blacklistClientReason" placeholder="Descreva o motivo do golpe (ex: Cartão clonado, Zelle falso)">
+            </div>
+            <div class="form-group col-span-2">
+              <label class="form-label">Observações</label>
+              <textarea class="form-input" id="blacklistClientObservations" rows="3" placeholder="Observações adicionais do cliente"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
+          <button type="button" class="btn btn-danger" id="btnRestoreBlacklistClient" style="display: flex; align-items: center; gap: 6px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Restaurar Cliente
+          </button>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn btn-secondary" id="btnCancelBlacklistModal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btnSaveBlacklistModal">Salvar Alterações</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal: Expenses CRUD -->
   <div class="modal-backdrop" id="expenseModal">
     <div class="modal-window">
@@ -1490,6 +1739,84 @@
         <button type="button" class="btn btn-secondary" id="btnImportBack" style="display:none;">Voltar</button>
         <button type="button" class="btn btn-secondary" id="btnCancelImport">Cancelar</button>
         <button type="button" class="btn btn-primary" id="btnImportNext">Avançar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Import Order by Text -->
+  <div class="modal-backdrop" id="textImportModal">
+    <div class="modal-window modal-wide" style="max-width: 95%; width: 1200px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Importar Ordem por Texto</h3>
+        <button class="modal-close" id="btnCloseTextImportModal" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Stage 1: Text Input -->
+      <div class="modal-body text-import-stage" id="textImportStage1">
+        <div class="form-group">
+          <label class="form-label" for="textImportArea">Cole as ordens/pedidos abaixo (separe múltiplos pedidos por linhas em branco ou "-----")</label>
+          <textarea class="form-input" id="textImportArea" rows="14" style="font-family: monospace; font-size: 0.85rem; line-height: 1.5; resize: vertical; padding: 12px; background: var(--bg-tertiary);" placeholder="Cole sua ordem aqui. Exemplo:
+*VENDEDOR GUILHERME*
+TRATAMENTO VITAL MAX
+NOME: Sebastião Rosa Perrut
+ADDRESS: 772 Globe St - Fall River, MA 02724
+NUMBER: +1 (774) 776-5939
+3 Meses
+VALOR: 247 Dólares
+PAGAMENTO APÓS ENTREGA - ZELLE"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btnCancelTextImport">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnAnalyzeTextImport">Analisar Ordens</button>
+        </div>
+      </div>
+
+      <!-- Stage 2: Preview Table -->
+      <div class="modal-body text-import-stage" id="textImportStage2" style="display: none;">
+        <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h4 style="font-size: 1rem; font-weight: 600; margin: 0;">Prévia dos Pedidos Identificados</h4>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin: 4px 0 0 0;">Por favor, revise os dados antes de confirmar. Linhas com avisos ou duplicados podem ser ajustadas diretamente na tabela.</p>
+          </div>
+          <span id="textImportCountBadge" class="badge badge-neutral">0 pedidos</span>
+        </div>
+        
+        <div class="table-scroll" style="max-height: 480px; overflow: auto; margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+          <table class="data-table" style="min-width: 1900px; font-size: 0.8rem;">
+            <thead>
+              <tr>
+                <th style="width: 50px; text-align: center;">Ações</th>
+                <th style="width: 140px;">Ação Duplicado</th>
+                <th style="width: 200px;">Avisos</th>
+                <th>Nome *</th>
+                <th>Telefone</th>
+                <th>Produto</th>
+                <th>Plano</th>
+                <th>Potes</th>
+                <th>Valor ($)</th>
+                <th>Status</th>
+                <th>Atendente</th>
+                <th>Endereço</th>
+                <th>Cidade</th>
+                <th>Estado</th>
+                <th>CEP</th>
+                <th>País</th>
+                <th>Forma Pgto</th>
+                <th>Observações</th>
+              </tr>
+            </thead>
+            <tbody id="textImportPreviewBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-secondary" id="btnBackTextImport">Voltar</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmTextImport">Confirmar Importação</button>
+        </div>
       </div>
     </div>
   </div>

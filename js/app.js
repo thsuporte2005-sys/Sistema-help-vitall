@@ -216,6 +216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       const newId = await window.db.add('expenses', expenseData);
       expenseData.id = newId;
+      await createNotification('Nova despesa automática criada', `Custo de embalagem/frete de $${expenseData.value.toFixed(2)} inserido para ${client.name}.`, 'expense_created', 'admin', 'expense', newId);
     }
 
     state.expenses = await window.db.getAll('expenses');
@@ -232,6 +233,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       theme: 'system',
       systemName: 'Help Vitall'
     },
+    notifications: [],
+    notificationFilter: 'all',
     // Temp variables for edits
     editingProductId: null,
     editingClientId: null,
@@ -254,6 +257,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     menuToggle: document.getElementById('menuToggle'),
     sidebar: document.getElementById('sidebar'),
     sidebarOverlay: document.getElementById('sidebarOverlay'),
+
+    // Notifications DOM Elements
+    notificationBellBtn: document.getElementById('notificationBellBtn'),
+    notificationBadge: document.getElementById('notificationBadge'),
+    notificationDropdown: document.getElementById('notificationDropdown'),
+    notificationDropdownList: document.getElementById('notificationDropdownList'),
+    btnMarkAllRead: document.getElementById('btnMarkAllRead'),
+    btnClearAllNotifications: document.getElementById('btnClearAllNotifications'),
+    dailySummaryDate: document.getElementById('dailySummaryDate'),
+    dailySummaryContent: document.getElementById('dailySummaryContent'),
 
     // Dashboard Filters
     dashboardPeriodFilter: document.getElementById('dashboardPeriodFilter'),
@@ -431,6 +444,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     sumLoss: document.getElementById('sumLoss'),
     sumErrors: document.getElementById('sumErrors'),
 
+    // Text Import Modal
+    textImportModal: document.getElementById('textImportModal'),
+    btnOpenTextImportModal: document.getElementById('btnOpenTextImportModal'),
+    btnCloseTextImportModal: document.getElementById('btnCloseTextImportModal'),
+    btnCancelTextImport: document.getElementById('btnCancelTextImport'),
+    btnAnalyzeTextImport: document.getElementById('btnAnalyzeTextImport'),
+    textImportStage1: document.getElementById('textImportStage1'),
+    textImportStage2: document.getElementById('textImportStage2'),
+    textImportArea: document.getElementById('textImportArea'),
+    textImportCountBadge: document.getElementById('textImportCountBadge'),
+    textImportPreviewBody: document.getElementById('textImportPreviewBody'),
+    btnBackTextImport: document.getElementById('btnBackTextImport'),
+    btnConfirmTextImport: document.getElementById('btnConfirmTextImport'),
+
+    // Black List Elements
+    chkShowBlacklistInClients: document.getElementById('chkShowBlacklistInClients'),
+    searchBlacklistInput: document.getElementById('searchBlacklistInput'),
+    blacklistPeriodFilter: document.getElementById('blacklistPeriodFilter'),
+    blacklistCustomDateRangeWrapper: document.getElementById('blacklistCustomDateRangeWrapper'),
+    blacklistStartDate: document.getElementById('blacklistStartDate'),
+    blacklistEndDate: document.getElementById('blacklistEndDate'),
+    kpiBlacklistTotal: document.getElementById('kpiBlacklistTotal'),
+    kpiBlacklistPrejuizo: document.getElementById('kpiBlacklistPrejuizo'),
+    kpiBlacklistHoje: document.getElementById('kpiBlacklistHoje'),
+    kpiBlacklistProduto: document.getElementById('kpiBlacklistProduto'),
+    kpiBlacklistVendedor: document.getElementById('kpiBlacklistVendedor'),
+    blacklistTableBody: document.getElementById('blacklistTableBody'),
+    blacklistModal: document.getElementById('blacklistModal'),
+    btnCloseBlacklistModal: document.getElementById('btnCloseBlacklistModal'),
+    blacklistForm: document.getElementById('blacklistForm'),
+    blacklistClientId: document.getElementById('blacklistClientId'),
+    blacklistClientName: document.getElementById('blacklistClientName'),
+    blacklistClientReason: document.getElementById('blacklistClientReason'),
+    blacklistClientObservations: document.getElementById('blacklistClientObservations'),
+    btnRestoreBlacklistClient: document.getElementById('btnRestoreBlacklistClient'),
+    btnCancelBlacklistModal: document.getElementById('btnCancelBlacklistModal'),
+
     // Authentication
     loginContainer: document.getElementById('loginContainer'),
     loginForm: document.getElementById('loginForm'),
@@ -576,7 +626,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (viewId === 'settings') {
         viewId = 'employee-settings';
       }
-      const allowedViews = ['employee-dashboard', 'clients', 'employee-settings'];
+      const allowedViews = ['employee-dashboard', 'clients', 'blacklist', 'employee-settings'];
       if (!allowedViews.includes(viewId)) {
         viewId = 'employee-dashboard';
       }
@@ -620,7 +670,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       'expenses': 'Gestão de Despesas',
       'reports': 'Desempenho por Produto',
       'settings': 'Configurações do Sistema',
-      'employees': 'Gestão de Funcionários'
+      'employees': 'Gestão de Funcionários',
+      'blacklist': 'Black List'
     };
     elements.currentViewTitle.textContent = viewTitleMap[viewId] || 'Help Vitall';
 
@@ -996,6 +1047,564 @@ document.addEventListener('DOMContentLoaded', async () => {
   elements.dashboardEndDate.addEventListener('change', updateDashboard);
   elements.dashboardProductFilter.addEventListener('change', updateDashboard);
 
+  // ==========================================================================
+  // NOTIFICATIONS & ALERTS SYSTEM
+  // ==========================================================================
+  async function createNotification(title, message, type, roleTarget = 'all', entityType = '', entityId = null, metadata = {}) {
+    const user = authState.user;
+    const notificationData = {
+      userId: user ? user.id : null,
+      roleTarget: roleTarget,
+      title: title,
+      message: message,
+      type: type,
+      priority: 'normal',
+      entityType: entityType,
+      entityId: entityId,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      readAt: null,
+      createdBy: user ? (user.name || user.email) : 'Sistema',
+      metadata: metadata
+    };
+
+    try {
+      await window.db.add('notifications', notificationData);
+      await loadNotifications();
+      const role = authState.user ? authState.user.role : 'funcionario';
+      if (roleTarget === 'all' || (roleTarget === 'admin' && role === 'admin') || (roleTarget === 'employee' && role === 'funcionario')) {
+        showToast(`Notificação: ${title}`, "info");
+      }
+    } catch (err) {
+      console.error("Error creating notification:", err);
+    }
+  }
+
+  async function loadNotifications() {
+    try {
+      const allNotifications = await window.db.getAll('notifications');
+      const role = authState.user ? authState.user.role : 'funcionario';
+      const userId = authState.user ? authState.user.id : null;
+      
+      state.notifications = allNotifications.filter(n => {
+        if (role === 'admin') return true;
+        if (n.type === 'daily_report') return false;
+        if (n.roleTarget === 'all' || n.roleTarget === 'employee') return true;
+        if (userId && n.userId === userId) return true;
+        return false;
+      });
+      
+      state.notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      renderNotifications();
+    } catch (err) {
+      console.error("Error loading notifications:", err);
+    }
+  }
+
+  function renderNotifications() {
+    const listContainer = elements.notificationDropdownList;
+    if (!listContainer) return;
+
+    const activeTab = document.querySelector('.notification-dropdown-filters .filter-tab.active');
+    const filter = activeTab ? activeTab.getAttribute('data-filter') : 'all';
+
+    let filtered = state.notifications;
+    if (filter === 'unread') {
+      filtered = filtered.filter(n => !n.isRead);
+    } else if (filter === 'clients') {
+      filtered = filtered.filter(n => n.type.startsWith('client_') || n.entityType === 'client');
+    } else if (filter === 'blacklist') {
+      filtered = filtered.filter(n => n.type.includes('blacklist') || n.type.includes('scam'));
+    } else if (filter === 'imports') {
+      filtered = filtered.filter(n => n.type.includes('import'));
+    } else if (filter === 'alerts') {
+      filtered = filtered.filter(n => n.type.includes('error') || n.type.includes('alert') || n.type.includes('loss'));
+    }
+
+    const unreadCount = state.notifications.filter(n => !n.isRead).length;
+    const badge = elements.notificationBadge;
+    if (badge) {
+      if (unreadCount > 0) {
+        badge.textContent = unreadCount;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    listContainer.innerHTML = '';
+    if (filtered.length === 0) {
+      listContainer.innerHTML = '<div class="notification-empty">Sem notificações correspondentes.</div>';
+      return;
+    }
+
+    filtered.forEach(n => {
+      const item = document.createElement('div');
+      item.className = `notification-item ${n.isRead ? '' : 'unread'}`;
+      item.setAttribute('data-id', n.id);
+
+      let categoryClass = 'info';
+      let icon = '🔔';
+      if (n.type.includes('created') || n.type.includes('paid')) {
+        categoryClass = 'success';
+        icon = '✅';
+      } else if (n.type.includes('pending') || n.type.includes('attention') || n.type.includes('alert')) {
+        categoryClass = 'alert';
+        icon = '⚠️';
+      } else if (n.type.includes('error') || n.type.includes('loss')) {
+        categoryClass = 'error';
+        icon = '❌';
+      } else if (n.type.includes('blacklist') || n.type.includes('scam')) {
+        categoryClass = 'blacklist';
+        icon = '🛑';
+      } else if (n.type.includes('report')) {
+        categoryClass = 'report';
+        icon = '📊';
+      }
+
+      let formattedTime = 'Recent';
+      try {
+        const d = new Date(n.createdAt);
+        formattedTime = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      } catch(e){}
+
+      item.innerHTML = `
+        <div class="notification-icon ${categoryClass}">${icon}</div>
+        <div class="notification-content">
+          <div class="notification-title">${n.title}</div>
+          <div class="notification-msg">${n.message}</div>
+          <div class="notification-meta">
+            <span>Por: ${n.createdBy || 'Sistema'}</span>
+            <span>${formattedTime}</span>
+          </div>
+          <div class="notification-item-actions">
+            ${!n.isRead ? `<button class="notification-btn-action btn-mark-read-item" data-id="${n.id}">Marcar como lida</button>` : ''}
+            ${n.entityType && n.entityId ? `<button class="notification-btn-action btn-view-entity" data-entity-type="${n.entityType}" data-entity-id="${n.entityId}">Ver Detalhes</button>` : ''}
+          </div>
+        </div>
+      `;
+
+      listContainer.appendChild(item);
+    });
+
+    listContainer.querySelectorAll('.btn-mark-read-item').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        await markNotificationRead(id);
+      });
+    });
+
+    listContainer.querySelectorAll('.btn-view-entity').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const entityType = btn.getAttribute('data-entity-type');
+        const entityId = btn.getAttribute('data-entity-id');
+        await handleViewEntity(entityType, entityId);
+      });
+    });
+  }
+
+  async function markNotificationRead(id) {
+    try {
+      const notification = await window.db.get('notifications', id);
+      if (notification) {
+        notification.isRead = true;
+        notification.readAt = new Date().toISOString();
+        await window.db.put('notifications', notification);
+        await loadNotifications();
+      }
+    } catch (err) {
+      console.error("Error marking notification read:", err);
+    }
+  }
+
+  async function markAllNotificationsRead() {
+    try {
+      const unread = state.notifications.filter(n => !n.isRead);
+      for (const n of unread) {
+        n.isRead = true;
+        n.readAt = new Date().toISOString();
+        await window.db.put('notifications', n);
+      }
+      await loadNotifications();
+      showToast("Todas as notificações marcadas como lidas.", "success");
+    } catch (err) {
+      console.error("Error marking all read:", err);
+    }
+  }
+
+  async function clearAllNotifications() {
+    if (!confirm("Deseja realmente excluir todas as suas notificações?")) return;
+    try {
+      for (const n of state.notifications) {
+        await window.db.delete('notifications', n.id);
+      }
+      await loadNotifications();
+      showToast("Todas as notificações excluídas.", "success");
+    } catch (err) {
+      console.error("Error clearing notifications:", err);
+    }
+  }
+
+  async function handleViewEntity(entityType, entityId) {
+    if (entityType === 'client') {
+      elements.notificationDropdown.classList.remove('active');
+      const client = await window.db.get('clients', entityId);
+      if (!client) {
+        showToast("Cliente não encontrado.", "error");
+        return;
+      }
+      if (client.status === 'Golpe') {
+        navigateTo('blacklist');
+        if (elements.searchBlacklistInput) {
+          elements.searchBlacklistInput.value = client.name;
+          renderBlacklist();
+        }
+      } else {
+        navigateTo('clients');
+        const searchInput = document.getElementById('searchClientsInput');
+        if (searchInput) {
+          searchInput.value = client.name;
+          renderClientsList();
+        }
+      }
+    } else if (entityType === 'blacklist') {
+      elements.notificationDropdown.classList.remove('active');
+      navigateTo('blacklist');
+    } else if (entityType === 'report') {
+      elements.notificationDropdown.classList.remove('active');
+      navigateTo('reports');
+    } else if (entityType === 'import') {
+      elements.notificationDropdown.classList.remove('active');
+      navigateTo('clients');
+    }
+  }
+
+  async function checkDailyReportNotification() {
+    const role = authState.user ? authState.user.role : '';
+    if (role !== 'admin') return;
+    
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const notifications = await window.db.getAll('notifications');
+    const hasDaily = notifications.some(n => 
+      n.type === 'daily_report' && 
+      n.createdAt.slice(0, 10) === todayStr
+    );
+    
+    if (!hasDaily) {
+      await createNotification(
+        'Resumo diário disponível',
+        'O resumo de hoje já está disponível na área Relatórios.',
+        'daily_report',
+        'admin',
+        'report'
+      );
+    }
+  }
+
+  function renderDailySummary() {
+    const dailySummaryContent = elements.dailySummaryContent;
+    const dailySummaryDate = elements.dailySummaryDate;
+    if (!dailySummaryContent) return;
+
+    const todayStr = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (dailySummaryDate) {
+      dailySummaryDate.textContent = todayStr.charAt(0).toUpperCase() + todayStr.slice(1);
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayClients = state.clients.filter(c => {
+      const regDate = parseLocalDate(getClientEffectiveDate(c));
+      return regDate >= todayStart && regDate <= todayEnd;
+    });
+
+    const todayExpenses = state.expenses.filter(e => {
+      const expDate = parseLocalDate(e.date);
+      return expDate >= todayStart && expDate <= todayEnd;
+    });
+
+    const role = authState.user ? authState.user.role : 'funcionario';
+    
+    if (role === 'admin') {
+      let faturamento = 0;
+      let prejuizo = 0;
+      let totalDespesas = todayExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0);
+      
+      let countPago = 0;
+      let countPendente = 0;
+      let countGolpes = 0;
+      let countNovos = todayClients.length;
+
+      todayClients.forEach(c => {
+        const val = Number(c.saleValue) || 0;
+        if (c.status === 'Pago') {
+          faturamento += val;
+          countPago++;
+        } else if (c.status === 'Golpe') {
+          prejuizo += val;
+          countGolpes++;
+        } else if (c.status === 'Pagamento pendente') {
+          countPendente++;
+        }
+      });
+
+      let lucroLiquido = faturamento - totalDespesas - prejuizo;
+
+      const prodStats = {};
+      todayClients.forEach(c => {
+        if (!c.productId) return;
+        if (!prodStats[c.productId]) {
+          prodStats[c.productId] = { name: c.planName || 'Produto', sales: 0, loss: 0 };
+        }
+        const val = Number(c.saleValue) || 0;
+        if (c.status === 'Pago') {
+          prodStats[c.productId].sales += val;
+        } else if (c.status === 'Golpe') {
+          prodStats[c.productId].loss += val;
+        }
+      });
+
+      let bestProduct = 'Nenhum';
+      let maxSales = 0;
+      let worstProduct = 'Nenhum';
+      let maxLoss = 0;
+
+      for (const pid in prodStats) {
+        if (prodStats[pid].sales > maxSales) {
+          maxSales = prodStats[pid].sales;
+          bestProduct = prodStats[pid].name;
+        }
+        if (prodStats[pid].loss > maxLoss) {
+          maxLoss = prodStats[pid].loss;
+          worstProduct = prodStats[pid].name;
+        }
+      }
+
+      const attendantStats = {};
+      todayClients.forEach(c => {
+        if (!c.attendant) return;
+        if (!attendantStats[c.attendant]) {
+          attendantStats[c.attendant] = { creations: 0 };
+        }
+        attendantStats[c.attendant].creations++;
+      });
+
+      let topEmployeeName = 'Nenhum';
+      let maxCreations = 0;
+      for (const emp in attendantStats) {
+        if (attendantStats[emp].creations > maxCreations) {
+          maxCreations = attendantStats[emp].creations;
+          topEmployeeName = emp;
+        }
+      }
+
+      const todayAlerts = [];
+      if (prejuizo > 500) {
+        todayAlerts.push(`⚠️ Prejuízo elevado registrado hoje: $${prejuizo.toFixed(2)}`);
+      }
+      if (totalDespesas > 1000) {
+        todayAlerts.push(`⚠️ Despesas operacionais muito altas hoje: $${totalDespesas.toFixed(2)}`);
+      }
+      
+      const pendingMoreThan3Days = state.clients.filter(c => {
+        if (c.status !== 'Pagamento pendente') return false;
+        const diff = (new Date() - parseLocalDate(c.date)) / (1000 * 60 * 60 * 24);
+        return diff >= 3;
+      }).length;
+      if (pendingMoreThan3Days > 0) {
+        todayAlerts.push(`⚠️ Existem ${pendingMoreThan3Days} clientes pendentes há mais de 3 dias!`);
+      }
+
+      dailySummaryContent.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div style="padding: 12px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.1); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Faturamento do Dia</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: #10b981;">$${faturamento.toFixed(2)}</div>
+          </div>
+          <div style="padding: 12px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.1); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Lucro Líquido do Dia</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: ${lucroLiquido >= 0 ? '#10b981' : '#ef4444'};">$${lucroLiquido.toFixed(2)}</div>
+          </div>
+          <div style="padding: 12px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.1); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Despesas Operacionais</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: #f59e0b;">$${totalDespesas.toFixed(2)}</div>
+          </div>
+          <div style="padding: 12px; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.1); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Prejuízo Registrado (Golpes)</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: #ef4444;">$${prejuizo.toFixed(2)}</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+          <div>
+            <h3 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Atividades & Clientes</h3>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px;">
+              <li style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Novos clientes adicionados</span>
+                <span style="padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 0.7rem; background: var(--bg-secondary);">${countNovos}</span>
+              </li>
+              <li style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Clientes marcados como PAGO</span>
+                <span style="padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 0.7rem; background: rgba(16, 185, 129, 0.1); color: #10b981;">${countPago}</span>
+              </li>
+              <li style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Pagamentos pendentes</span>
+                <span style="padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 0.7rem; background: rgba(245, 158, 11, 0.1); color: #f59e0b;">${countPendente}</span>
+              </li>
+              <li style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Golpes / Encapados (Black List)</span>
+                <span style="padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 0.7rem; background: rgba(239, 68, 68, 0.1); color: #ef4444;">${countGolpes}</span>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h3 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Desempenho de Hoje</h3>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px;">
+              <li style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Produto mais vendido</span>
+                <strong style="color: var(--color-green-500);">${bestProduct}</strong>
+              </li>
+              <li style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Produto com mais golpes</span>
+                <strong style="color: #ef4444;">${worstProduct}</strong>
+              </li>
+              <li style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Vendedor com mais cadastros</span>
+                <strong>${topEmployeeName}</strong>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        ${todayAlerts.length > 0 ? `
+          <div style="margin-top: 20px; padding: 12px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px;">
+            <h4 style="font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: #f59e0b;">Alertas do Dia:</h4>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.75rem; display: flex; flex-direction: column; gap: 6px; color: var(--text-primary);">
+              ${todayAlerts.map(alert => `<li>${alert}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      `;
+    } else {
+      const employeeName = authState.user ? authState.user.name : '';
+      const myTodayClients = todayClients.filter(c => c.attendant === employeeName);
+
+      let countPago = 0;
+      let countPendente = 0;
+      let countGolpes = 0;
+      let countNovos = myTodayClients.length;
+
+      myTodayClients.forEach(c => {
+        if (c.status === 'Pago') countPago++;
+        else if (c.status === 'Golpe') countGolpes++;
+        else if (c.status === 'Pagamento pendente') countPendente++;
+      });
+
+      const attentionItems = state.clients.filter(c => {
+        if (c.attendant !== employeeName || c.status !== 'Pagamento pendente') return false;
+        const diff = (new Date() - parseLocalDate(c.date)) / (1000 * 60 * 60 * 24);
+        return diff >= 2;
+      });
+
+      dailySummaryContent.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div style="padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Clientes Cadastrados Hoje</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: var(--color-green-500);">${countNovos}</div>
+          </div>
+          <div style="padding: 12px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.1); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Suas Vendas Pagas Hoje</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: #10b981;">${countPago}</div>
+          </div>
+          <div style="padding: 12px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.1); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Suas Vendas Pendentes</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: #f59e0b;">${countPendente}</div>
+          </div>
+          <div style="padding: 12px; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.1); border-radius: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">Seus Golpes do Dia</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: #ef4444;">${countGolpes}</div>
+          </div>
+        </div>
+
+        ${attentionItems.length > 0 ? `
+          <div style="padding: 12px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px;">
+            <h4 style="font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: #f59e0b; display: flex; align-items: center; gap: 6px;">
+              <span>⚠️</span> Suas Pendências que precisam de atenção (${attentionItems.length}):
+            </h4>
+            <div class="table-scroll">
+              <table class="data-table" style="font-size: 0.75rem;">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Data de Cadastro</th>
+                    <th>Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${attentionItems.map(c => `
+                    <tr>
+                      <td>${c.name}</td>
+                      <td>${new Date(c.date).toLocaleDateString('pt-BR')}</td>
+                      <td>$${Number(c.saleValue || 0).toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : `
+          <div style="text-align: center; padding: 20px; font-size: 0.8rem; color: var(--text-secondary);">
+            🎉 Excelente! Você não possui pendências acumuladas.
+          </div>
+        `}
+      `;
+    }
+  }
+
+  if (elements.notificationBellBtn) {
+    elements.notificationBellBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      elements.notificationDropdown.classList.toggle('active');
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (elements.notificationDropdown && elements.notificationDropdown.classList.contains('active')) {
+      if (!elements.notificationDropdown.contains(e.target) && !elements.notificationBellBtn.contains(e.target)) {
+        elements.notificationDropdown.classList.remove('active');
+      }
+    }
+  });
+
+  if (elements.btnMarkAllRead) {
+    elements.btnMarkAllRead.addEventListener('click', (e) => {
+      e.stopPropagation();
+      markAllNotificationsRead();
+    });
+  }
+
+  if (elements.btnClearAllNotifications) {
+    elements.btnClearAllNotifications.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearAllNotifications();
+    });
+  }
+
+  document.querySelectorAll('.notification-dropdown-filters .filter-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.notification-dropdown-filters .filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      renderNotifications();
+    });
+  });
+
   // Reports View Filters change event listeners
   elements.reportsPeriodFilter.addEventListener('change', (e) => {
     if (e.target.value === 'custom') {
@@ -1061,6 +1670,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         break;
       case 'employees':
         renderEmployeesList();
+        break;
+      case 'blacklist':
+        renderBlacklist();
         break;
     }
   }
@@ -1488,6 +2100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // REPORTS VIEW LOGIC
   // ==========================================================================
   function updateReportsView() {
+    renderDailySummary();
     const period = elements.reportsPeriodFilter.value;
     const startVal = elements.reportsStartDate.value;
     const endVal = elements.reportsEndDate.value;
@@ -1608,6 +2221,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return false;
       }
 
+      // Check blacklist status: hide 'Golpe' unless checked
+      const showBlacklist = elements.chkShowBlacklistInClients && elements.chkShowBlacklistInClients.checked;
+      if (!showBlacklist && client.status === 'Golpe') {
+        return false;
+      }
+
       const matchesSearch = !searchQuery || 
         client.name.toLowerCase().includes(searchQuery) ||
         client.phone.toLowerCase().includes(searchQuery) ||
@@ -1686,10 +2305,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Client search listener
   elements.searchClientsInput.addEventListener('input', renderClientsList);
+  if (elements.chkShowBlacklistInClients) {
+    elements.chkShowBlacklistInClients.addEventListener('change', renderClientsList);
+  }
 
   function getClientDisplayProductName(client) {
     const product = state.products.find(p => String(p.id) === String(client.productId));
     return product ? product.name : 'Produto Desconhecido';
+  }
+
+  function getClientCreationSourceLabel(source) {
+    if (source === 'spreadsheet') return 'Planilha';
+    if (source === 'text_import') return 'Ordem por texto';
+    return 'Manual';
   }
 
   function getClientDisplayDate(value) {
@@ -1730,7 +2358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ['Data do pagamento', getClientDisplayDate(client.paymentDate)],
       ['Forma de pagamento', client.paymentMethod],
       ['Criado por', client.createdByName],
-      ['Origem', client.creationSource === 'spreadsheet' ? 'Planilha' : 'Manual'],
+      ['Origem', getClientCreationSourceLabel(client.creationSource)],
       ['Observações', client.observations]
     ];
 
@@ -1956,6 +2584,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       if (state.editingClientId) {
         const originalClient = state.clients.find(c => Number(c.id) === Number(state.editingClientId));
+        
+        // If status changed to Golpe, set blacklist fields
+        if (clientData.status === 'Golpe' && (!originalClient || originalClient.status !== 'Golpe')) {
+          clientData.blacklistedAt = new Date().toISOString();
+          clientData.blacklistedById = authState.user ? (authState.user.profileId || authState.user.id || null) : null;
+          clientData.blacklistedByName = authState.user ? (authState.user.name || authState.user.email || '') : 'Sistema';
+          clientData.blacklistReason = clientData.blacklistReason || 'Status alterado para Golpe';
+        } else if (clientData.status !== 'Golpe') {
+          // Clear blacklist fields if status changed from Golpe
+          clientData.blacklistedAt = null;
+          clientData.blacklistedById = null;
+          clientData.blacklistedByName = null;
+          clientData.blacklistReason = '';
+        }
+
         const updatedClient = {
           ...originalClient,
           ...clientData,
@@ -1965,6 +2608,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         await syncAutoExpenseForClient(updatedClient, 'manual');
         showToast('Cliente editado com sucesso!');
         await logActivity('EDIT_CLIENT', `Editou cliente ${clientData.name}`, 'clients', state.editingClientId, clientData.name);
+        
+        // Trigger status edit notifications
         if (originalClient && originalClient.status !== clientData.status) {
           const actionType = clientData.status === 'Pago'
             ? 'MARK_CLIENT_PAID'
@@ -1972,6 +2617,23 @@ document.addEventListener('DOMContentLoaded', async () => {
               ? 'MARK_CLIENT_SCAM'
               : 'CLIENT_STATUS_CHANGE';
           await logActivity(actionType, `Alterou status do cliente ${clientData.name} para ${clientData.status}`, 'clients', state.editingClientId, clientData.name);
+
+          const authorName = authState.user ? (authState.user.name || authState.user.email) : 'Funcionário';
+          if (clientData.status === 'Pago') {
+            await createNotification('Cliente marcado como Pago', `${authorName} marcou ${clientData.name} como pago ($${clientData.saleValue.toFixed(2)}).`, 'client_paid', 'all', 'client', state.editingClientId);
+          } else if (clientData.status === 'Golpe') {
+            await createNotification('Cliente enviado para Black List', `${clientData.name} foi marcado como golpe e enviado para a Black List.`, 'client_blacklisted', 'all', 'client', state.editingClientId);
+            await createNotification('Prejuízo registrado', `Prejuízo de $${clientData.saleValue.toFixed(2)} registrado com ${clientData.name}.`, 'loss_registered', 'admin', 'client', state.editingClientId);
+          } else if (clientData.status === 'Pagamento pendente') {
+            await createNotification('Cliente marcado como Pendente', `${clientData.name} está com pagamento pendente.`, 'client_pending', 'all', 'client', state.editingClientId);
+          }
+        } else {
+          // Normal edit
+          const userRole = authState.user ? authState.user.role : 'funcionario';
+          const userName = authState.user ? (authState.user.name || authState.user.email) : 'Funcionário';
+          if (userRole === 'funcionario') {
+            await createNotification('Funcionário editou cliente', `${userName} editou os dados de ${clientData.name}.`, 'employee_activity', 'admin', 'client', state.editingClientId);
+          }
         }
       } else {
         if (authState.user) {
@@ -1980,11 +2642,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         clientData.creationSource = 'manual';
 
+        // If creating with status Golpe
+        if (clientData.status === 'Golpe') {
+          clientData.blacklistedAt = new Date().toISOString();
+          clientData.blacklistedById = authState.user ? (authState.user.profileId || authState.user.id || null) : null;
+          clientData.blacklistedByName = authState.user ? (authState.user.name || authState.user.email || '') : 'Sistema';
+          clientData.blacklistReason = 'Adicionado com status Golpe';
+        }
+
         const newId = await window.db.add('clients', clientData);
         clientData.id = newId;
         await syncAutoExpenseForClient(clientData, 'manual');
         showToast('Cliente cadastrado com sucesso!');
         await logActivity('ADD_CLIENT', `Cadastrou cliente ${clientData.name}`, 'clients', newId, clientData.name);
+        
+        // Trigger creation notifications
+        const creatorName = authState.user ? (authState.user.name || authState.user.email) : 'Funcionário';
+        const userRole = authState.user ? authState.user.role : 'funcionario';
+        
+        if (userRole === 'funcionario') {
+          await createNotification('Novo cliente criado', `${creatorName} adicionou o cliente ${clientData.name}.`, 'client_created', 'admin', 'client', newId);
+        } else {
+          await createNotification('Novo cliente criado', `Cliente ${clientData.name} cadastrado no sistema por Admin.`, 'client_created', 'all', 'client', newId);
+        }
+
+        if (clientData.status === 'Golpe') {
+          await logActivity('MARK_CLIENT_SCAM', `Cadastrou cliente ${clientData.name} diretamente na Black List`, 'clients', newId, clientData.name);
+          await createNotification('Cliente enviado para Black List', `${clientData.name} foi marcado como golpe e enviado para a Black List.`, 'client_blacklisted', 'all', 'client', newId);
+          await createNotification('Prejuízo registrado', `Prejuízo de $${clientData.saleValue.toFixed(2)} registrado com ${clientData.name}.`, 'loss_registered', 'admin', 'client', newId);
+        } else if (clientData.status === 'Pagamento pendente') {
+          await createNotification('Cliente pendente', `Novo cliente ${clientData.name} com pagamento pendente.`, 'client_pending', 'all', 'client', newId);
+        }
       }
       closeClientModal();
       await loadViewData('clients');
@@ -2015,6 +2703,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         await window.db.delete('clients', id);
         await logActivity('DELETE_CLIENT', `Apagou o cliente ${client ? client.name : id}`, 'clients', id, client ? client.name : '');
+
+        // Trigger delete notification
+        const userName = authState.user ? (authState.user.name || authState.user.email) : 'Usuário';
+        await createNotification('Cliente excluído', `Cliente ${client ? client.name : id} foi removido do sistema por ${userName}.`, 'employee_activity', 'admin');
 
         if (autoExpenseId) {
           await window.db.delete('expenses', autoExpenseId);
@@ -2525,6 +3217,874 @@ document.addEventListener('DOMContentLoaded', async () => {
     openImportModal();
   });
 
+  // ==========================================================================
+  // TEXT IMPORT (COLAR ORDEM) SECTION
+  // ==========================================================================
+  let parsedOrdersList = [];
+
+  function openTextImportModal() {
+    elements.textImportArea.value = '';
+    elements.textImportStage1.style.display = 'block';
+    elements.textImportStage2.style.display = 'none';
+    elements.textImportModal.classList.add('active');
+  }
+
+  function closeTextImportModal() {
+    elements.textImportModal.classList.remove('active');
+  }
+
+  function parseOrdersFromText(text) {
+    if (!text || !text.trim()) return [];
+    
+    const lines = text.split(/\r?\n/);
+    const blocks = [];
+    let currentBlock = [];
+
+    for (let line of lines) {
+      const cleanLine = line.trim();
+      if (!cleanLine) {
+        continue;
+      }
+      
+      const isNewOrderTrigger = 
+        cleanLine.includes('-----') || 
+        cleanLine.includes('=====') || 
+        /^\*?VENDEDOR/i.test(cleanLine) || 
+        /^\*?SELLER/i.test(cleanLine) ||
+        /^\*?TRATAMENTO/i.test(cleanLine);
+
+      if (isNewOrderTrigger && currentBlock.length > 0) {
+        const hasContent = currentBlock.some(l => l.includes(':') || /\d/.test(l));
+        if (hasContent) {
+          blocks.push(currentBlock);
+          currentBlock = [];
+        }
+      }
+      
+      if (!cleanLine.includes('-----') && !cleanLine.includes('=====')) {
+        currentBlock.push(line);
+      }
+    }
+    if (currentBlock.length > 0) {
+      blocks.push(currentBlock);
+    }
+
+    const orders = [];
+
+    for (let blockLines of blocks) {
+      const order = {
+        attendant: '',
+        productName: '',
+        productId: null,
+        name: '',
+        address: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: 'Estados Unidos',
+        phone: '',
+        planName: '',
+        bottles: 0,
+        saleValue: 0,
+        paymentMethod: '',
+        status: 'Pagamento pendente',
+        observations: '',
+        warnings: [],
+        duplicateChoice: 'create',
+        isDuplicate: false
+      };
+
+      let addressText = '';
+
+      for (let rawLine of blockLines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        const sellerMatch = line.match(/^(?:\*?VENDEDOR|\*?SELLER)\s*(?::\s*)?([^*:\n\r]+)/i);
+        if (sellerMatch) {
+          order.attendant = sellerMatch[1].trim().replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '').trim();
+          continue;
+        }
+
+        const productMatch = line.match(/^(?:TRATAMENTO|\*?PRODUTO)\s*(?::\s*)?([^*:\n\r]+)/i);
+        if (productMatch) {
+          order.productName = productMatch[1].trim().replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '').trim();
+          continue;
+        }
+
+        const nameMatch = line.match(/^(?:NOME|CLIENTE|NOME\s+DO\s+CLIENTE)\s*(?::\s*)?([^*:\n\r]+)/i);
+        if (nameMatch) {
+          order.name = nameMatch[1].trim();
+          continue;
+        }
+
+        const addrMatch = line.match(/^(?:ADDRESS|ENDEREÇO|ENDERECO)\s*(?::\s*)?([^*:\n\r]+)/i);
+        if (addrMatch) {
+          addressText = addrMatch[1].trim();
+          continue;
+        }
+
+        const phoneMatch = line.match(/^(?:NUMBER|TELEFONE|PHONE|WHATSAPP)\s*(?::\s*)?([^*:\n\r]+)/i);
+        if (phoneMatch) {
+          order.phone = phoneMatch[1].trim();
+          continue;
+        }
+
+        const valMatch = line.match(/^(?:VALOR|TOTAL|PRICE)\s*(?::\s*)?([^*:\n\r]+)/i);
+        if (valMatch) {
+          const rawVal = valMatch[1].trim();
+          const cleanVal = rawVal.replace(/[^0-9.,]/g, '').replace(',', '.');
+          const parsedVal = parseFloat(cleanVal);
+          if (!isNaN(parsedVal)) {
+            order.saleValue = parsedVal;
+          }
+          if (/zelle/i.test(rawVal)) {
+            order.paymentMethod = 'Zelle';
+          }
+          continue;
+        }
+
+        const planMatch = line.match(/(\d+)\s*(?:Meses|Mês|meses|mes|months|months)/i);
+        if (planMatch) {
+          const months = parseInt(planMatch[1], 10);
+          order.planName = months === 1 ? `${months} mês` : `${months} meses`;
+          order.bottles = months;
+          continue;
+        }
+
+        if (/zelle/i.test(line)) {
+          order.paymentMethod = 'Zelle';
+        } else if (/cart[aã]o/i.test(line) || /card/i.test(line)) {
+          order.paymentMethod = 'Cartão';
+        } else if (/dinheiro/i.test(line) || /cash/i.test(line)) {
+          order.paymentMethod = 'Dinheiro';
+        }
+
+        const lowerLine = line.toLowerCase();
+        if (/pagamento\s+ap[oó]s\s+entrega|paga\s+ap[oó]s\s+entrega|after\s+delivery|zelle\s+ap[oó]s\s+entrega|vai\s+pagar\s+depois|pendente/i.test(lowerLine)) {
+          order.status = 'Pagamento pendente';
+        } else if (/pago|pagamento\s+realizado|j[aá]\s+pagou|paid|zelle\s+pago/i.test(lowerLine)) {
+          order.status = 'Pago';
+        } else if (/golpe|devolvido|devolu[cç][aã]o|cliente\s+n[aã]o\s+pagou|recusou|returned/i.test(lowerLine)) {
+          order.status = 'Golpe';
+        }
+      }
+
+      if (!order.productName) {
+        const fullBlockText = blockLines.join('\n').toLowerCase();
+        if (fullBlockText.includes('vital max') || fullBlockText.includes('vitalmax')) {
+          order.productName = 'VitalMax';
+        } else if (fullBlockText.includes('artro flex') || fullBlockText.includes('artroflex')) {
+          order.productName = 'ArtroFlex';
+        } else if (fullBlockText.includes('arti flex') || fullBlockText.includes('artiflex')) {
+          order.productName = 'Arti Flex';
+        }
+      }
+
+      if (addressText) {
+        order.address = addressText;
+        const parts = addressText.split(/\s*-\s*/);
+        if (parts.length >= 2) {
+          order.address = parts[0].trim();
+          const remainder = parts.slice(1).join(' - ');
+          const commaParts = remainder.split(/\s*,\s*/);
+          if (commaParts.length >= 2) {
+            order.city = commaParts[0].trim();
+            const stZip = commaParts[1].trim().split(/\s+/);
+            if (stZip.length >= 1) order.state = stZip[0].trim();
+            if (stZip.length >= 2) order.zip = stZip[1].trim();
+          } else {
+            const match = remainder.match(/(.*?)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/i);
+            if (match) {
+              order.city = match[1].trim();
+              order.state = match[2].trim();
+              order.zip = match[3].trim();
+            } else {
+              order.city = remainder.trim();
+            }
+          }
+        }
+      }
+
+      const fullText = blockLines.join('\n').toLowerCase();
+      if (fullText.includes('brasil')) {
+        order.country = 'Brasil';
+      } else if (fullText.includes('portugal')) {
+        order.country = 'Portugal';
+      } else if (fullText.includes('canada')) {
+        order.country = 'Canadá';
+      }
+
+      if (order.productName) {
+        const cleanName = order.productName.toLowerCase().replace(/\s+/g, '');
+        const matched = state.products.find(p => p.name.toLowerCase().replace(/\s+/g, '') === cleanName);
+        if (matched) {
+          order.productId = matched.id;
+          order.productName = matched.name;
+        } else {
+          order.warnings.push('Produto não cadastrado');
+        }
+      } else {
+        order.warnings.push('Produto não identificado');
+      }
+
+      if (order.productId) {
+        const prod = state.products.find(p => p.id === order.productId);
+        if (prod && prod.plans && prod.plans.length > 0) {
+          const matchedPlan = prod.plans.find(pl => pl.name.toLowerCase() === order.planName.toLowerCase());
+          if (matchedPlan) {
+            order.planName = matchedPlan.name;
+            if (order.saleValue === 0) {
+              order.saleValue = matchedPlan.price;
+            }
+          } else {
+            const monthsMatch = order.planName.match(/(\d+)/);
+            if (monthsMatch) {
+              const monthsVal = parseInt(monthsMatch[1], 10);
+              const planByMonths = prod.plans.find(pl => pl.name.toLowerCase().includes(`${monthsVal} m`) || pl.name.toLowerCase().includes(`${monthsVal} p`));
+              if (planByMonths) {
+                order.planName = planByMonths.name;
+                if (order.saleValue === 0) {
+                  order.saleValue = planByMonths.price;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!order.name) {
+        order.warnings.push('Nome obrigatório');
+      }
+      if (!order.phone) {
+        order.warnings.push('Sem telefone');
+      }
+      if (!order.address) {
+        order.warnings.push('Sem endereço');
+      }
+      if (!order.city) {
+        order.warnings.push('Sem cidade');
+      }
+
+      const isDuplicate = state.clients.some(c => 
+        (order.phone && c.phone && c.phone.replace(/\D/g, '') === order.phone.replace(/\D/g, '')) ||
+        (order.name && c.name && c.name.toLowerCase().trim() === order.name.toLowerCase().trim()) ||
+        (order.address && c.address && c.address.toLowerCase().trim() === order.address.toLowerCase().trim())
+      );
+      if (isDuplicate) {
+        order.warnings.push('Possível cliente duplicado encontrado');
+        order.isDuplicate = true;
+        order.duplicateChoice = 'create';
+      }
+
+      orders.push(order);
+    }
+
+    return orders;
+  }
+
+  function renderTextImportPreview() {
+    const tbody = elements.textImportPreviewBody;
+    tbody.innerHTML = '';
+    
+    if (parsedOrdersList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="19" class="table-empty">Nenhum pedido parseado com sucesso.</td></tr>`;
+      elements.textImportCountBadge.textContent = '0 pedidos';
+      return;
+    }
+
+    elements.textImportCountBadge.textContent = `${parsedOrdersList.length} ${parsedOrdersList.length === 1 ? 'pedido' : 'pedidos'}`;
+
+    parsedOrdersList.forEach((order, index) => {
+      const row = document.createElement('tr');
+      if (order.isDuplicate) {
+        row.style.backgroundColor = 'rgba(245, 158, 11, 0.04)';
+      }
+
+      let productOptions = `<option value="">-- Produto não identificado --</option>`;
+      state.products.forEach(p => {
+        const selected = p.id === order.productId ? 'selected' : '';
+        productOptions += `<option value="${p.id}" ${selected}>${escapeHTML(p.name)}</option>`;
+      });
+
+      let warningsHtml = '';
+      if (order.warnings && order.warnings.length > 0) {
+        warningsHtml = order.warnings.map(w => {
+          const type = w.includes('obrigatório') || w.includes('Nome') ? 'badge-danger' : 'badge-warning';
+          return `<span class="badge ${type}" style="margin-bottom: 2px; display: block; text-align: center;">${escapeHTML(w)}</span>`;
+        }).join('');
+      } else {
+        warningsHtml = `<span class="badge badge-success">OK</span>`;
+      }
+
+      let duplicateSelect = '';
+      if (order.isDuplicate) {
+        duplicateSelect = `
+          <select class="select-filter text-import-dup-choice" data-index="${index}" style="width: 100%; padding: 4px 8px;">
+            <option value="create" ${order.duplicateChoice === 'create' ? 'selected' : ''}>Importar Novo</option>
+            <option value="update" ${order.duplicateChoice === 'update' ? 'selected' : ''}>Atualizar Existente</option>
+            <option value="ignore" ${order.duplicateChoice === 'ignore' ? 'selected' : ''}>Ignorar Pedido</option>
+          </select>
+        `;
+      } else {
+        duplicateSelect = `<span style="color: var(--text-muted); font-size: 0.75rem;">Nenhum</span>`;
+      }
+
+      row.innerHTML = `
+        <td style="text-align: center;">
+          <button type="button" class="btn btn-secondary btn-sm btn-icon-only btn-remove-text-import-row" data-index="${index}" title="Remover pedido">
+            <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
+        </td>
+        <td>${duplicateSelect}</td>
+        <td>${warningsHtml}</td>
+        <td>
+          <input type="text" class="search-input text-import-name" data-index="${index}" value="${escapeHTML(order.name || '')}" style="width: 150px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-phone" data-index="${index}" value="${escapeHTML(order.phone || '')}" style="width: 120px; padding: 4px 8px;">
+        </td>
+        <td>
+          <select class="select-filter text-import-product" data-index="${index}" style="width: 160px; padding: 4px 8px;">
+            ${productOptions}
+          </select>
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-plan" data-index="${index}" value="${escapeHTML(order.planName || '')}" style="width: 100px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="number" class="search-input text-import-bottles" data-index="${index}" value="${order.bottles || 0}" style="width: 60px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="number" step="0.01" class="search-input text-import-value" data-index="${index}" value="${order.saleValue || 0}" style="width: 85px; padding: 4px 8px;">
+        </td>
+        <td>
+          <select class="select-filter text-import-status" data-index="${index}" style="width: 150px; padding: 4px 8px;">
+            <option value="Pago" ${order.status === 'Pago' ? 'selected' : ''}>Pago</option>
+            <option value="Pagamento pendente" ${order.status === 'Pagamento pendente' ? 'selected' : ''}>Pagamento pendente</option>
+            <option value="Golpe" ${order.status === 'Golpe' ? 'selected' : ''}>Golpe</option>
+          </select>
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-attendant" data-index="${index}" value="${escapeHTML(order.attendant || '')}" style="width: 120px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-address" data-index="${index}" value="${escapeHTML(order.address || '')}" style="width: 180px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-city" data-index="${index}" value="${escapeHTML(order.city || '')}" style="width: 120px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-state" data-index="${index}" value="${escapeHTML(order.state || '')}" style="width: 60px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-zip" data-index="${index}" value="${escapeHTML(order.zip || '')}" style="width: 90px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-country" data-index="${index}" value="${escapeHTML(order.country || 'Estados Unidos')}" style="width: 120px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-payment" data-index="${index}" value="${escapeHTML(order.paymentMethod || '')}" style="width: 110px; padding: 4px 8px;">
+        </td>
+        <td>
+          <input type="text" class="search-input text-import-observations" data-index="${index}" value="${escapeHTML(order.observations || '')}" style="width: 160px; padding: 4px 8px;">
+        </td>
+      `;
+
+      tbody.appendChild(row);
+    });
+
+    tbody.querySelectorAll('.btn-remove-text-import-row').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(btn.getAttribute('data-index'), 10);
+        parsedOrdersList.splice(idx, 1);
+        renderTextImportPreview();
+      });
+    });
+
+    const updateMemoryOrder = (index, field, value) => {
+      if (parsedOrdersList[index]) {
+        parsedOrdersList[index][field] = value;
+        if (field === 'productId') {
+          const prodId = Number(value);
+          const prod = state.products.find(p => p.id === prodId);
+          if (prod) {
+            parsedOrdersList[index].productName = prod.name;
+          }
+        }
+      }
+    };
+
+    tbody.querySelectorAll('input, select').forEach(element => {
+      element.addEventListener('change', (e) => {
+        const idx = parseInt(element.getAttribute('data-index'), 10);
+        if (isNaN(idx)) return;
+        
+        if (element.classList.contains('text-import-name')) updateMemoryOrder(idx, 'name', element.value.trim());
+        else if (element.classList.contains('text-import-phone')) updateMemoryOrder(idx, 'phone', element.value.trim());
+        else if (element.classList.contains('text-import-product')) updateMemoryOrder(idx, 'productId', Number(element.value));
+        else if (element.classList.contains('text-import-plan')) updateMemoryOrder(idx, 'planName', element.value.trim());
+        else if (element.classList.contains('text-import-bottles')) updateMemoryOrder(idx, 'bottles', Number(element.value) || 0);
+        else if (element.classList.contains('text-import-value')) updateMemoryOrder(idx, 'saleValue', Number(element.value) || 0);
+        else if (element.classList.contains('text-import-status')) updateMemoryOrder(idx, 'status', element.value);
+        else if (element.classList.contains('text-import-attendant')) updateMemoryOrder(idx, 'attendant', element.value.trim());
+        else if (element.classList.contains('text-import-address')) updateMemoryOrder(idx, 'address', element.value.trim());
+        else if (element.classList.contains('text-import-city')) updateMemoryOrder(idx, 'city', element.value.trim());
+        else if (element.classList.contains('text-import-state')) updateMemoryOrder(idx, 'state', element.value.trim());
+        else if (element.classList.contains('text-import-zip')) updateMemoryOrder(idx, 'zip', element.value.trim());
+        else if (element.classList.contains('text-import-country')) updateMemoryOrder(idx, 'country', element.value.trim());
+        else if (element.classList.contains('text-import-payment')) updateMemoryOrder(idx, 'paymentMethod', element.value.trim());
+        else if (element.classList.contains('text-import-observations')) updateMemoryOrder(idx, 'observations', element.value.trim());
+        else if (element.classList.contains('text-import-dup-choice')) updateMemoryOrder(idx, 'duplicateChoice', element.value);
+
+        const order = parsedOrdersList[idx];
+        if (order) {
+          order.warnings = [];
+          if (!order.name) order.warnings.push('Nome obrigatório');
+          if (!order.productId) order.warnings.push('Produto não cadastrado');
+          
+          const rowEl = element.closest('tr');
+          if (rowEl) {
+            const warnCell = rowEl.cells[2];
+            if (warnCell) {
+              if (order.warnings.length > 0) {
+                warnCell.innerHTML = order.warnings.map(w => {
+                  const type = w.includes('obrigatório') || w.includes('Nome') ? 'badge-danger' : 'badge-warning';
+                  return `<span class="badge ${type}" style="margin-bottom: 2px; display: block; text-align: center;">${escapeHTML(w)}</span>`;
+                }).join('');
+              } else {
+                warnCell.innerHTML = `<span class="badge badge-success">OK</span>`;
+              }
+            }
+          }
+        }
+      });
+    });
+  }
+
+  async function confirmTextImport() {
+    if (parsedOrdersList.length === 0) {
+      showToast('Nenhum pedido para importar.', 'error');
+      return;
+    }
+
+    const invalidOrder = parsedOrdersList.find(o => !o.name);
+    if (invalidOrder) {
+      showToast('O nome do cliente é obrigatório para todos os pedidos.', 'error');
+      return;
+    }
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    let ignoredCount = 0;
+
+    for (let order of parsedOrdersList) {
+      if (order.duplicateChoice === 'ignore') {
+        ignoredCount++;
+        continue;
+      }
+
+      let existingClient = null;
+      if (order.duplicateChoice === 'update') {
+        existingClient = state.clients.find(c => 
+          (order.phone && c.phone && c.phone.replace(/\D/g, '') === order.phone.replace(/\D/g, '')) ||
+          (order.name && c.name && c.name.toLowerCase().trim() === order.name.toLowerCase().trim()) ||
+          (order.address && c.address && c.address.toLowerCase().trim() === order.address.toLowerCase().trim())
+        );
+      }
+
+      const clientData = {
+        name: order.name,
+        phone: order.phone || '',
+        country: order.country || 'Estados Unidos',
+        zip: order.zip || '',
+        address: order.address || '',
+        city: order.city || '',
+        state: order.state || '',
+        productId: Number(order.productId) || null,
+        planName: order.planName || '',
+        saleValue: Number(order.saleValue) || 0,
+        bottles: Number(order.bottles) || 0,
+        attendant: order.attendant || '',
+        date: new Date().toISOString().slice(0, 10),
+        status: order.status || 'Pagamento pendente',
+        observations: order.observations || '',
+        paymentMethod: order.paymentMethod || '',
+        trackingCode: '',
+        deliveryDate: '',
+        sent: false,
+        delivered: false,
+        paymentDate: order.status === 'Pago' ? new Date().toISOString().slice(0, 10) : ''
+      };
+
+      if (authState.user) {
+        clientData.createdById = authState.user.profileId || authState.user.id || null;
+        clientData.createdByName = authState.user.name || authState.user.email || '';
+      }
+      clientData.creationSource = 'text_import';
+
+      if (clientData.status === 'Golpe') {
+        clientData.blacklistedAt = new Date().toISOString();
+        clientData.blacklistedById = authState.user ? (authState.user.profileId || authState.user.id || null) : null;
+        clientData.blacklistedByName = authState.user ? (authState.user.name || authState.user.email || '') : 'Sistema';
+        clientData.blacklistReason = 'Importado via texto com status Golpe';
+      }
+
+      try {
+        if (existingClient) {
+          const updatedClient = {
+            ...existingClient,
+            ...clientData,
+            id: existingClient.id
+          };
+          await window.db.put('clients', updatedClient);
+          await syncAutoExpenseForClient(updatedClient, 'manual');
+          updatedCount++;
+        } else {
+          const newId = await window.db.add('clients', clientData);
+          clientData.id = newId;
+          await syncAutoExpenseForClient(clientData, 'manual');
+          createdCount++;
+        }
+      } catch (err) {
+        console.error('Error saving imported client:', err);
+      }
+    }
+
+    let logMsg = `Importou ${createdCount} cliente(s) por texto`;
+    if (updatedCount > 0) logMsg += `, atualizou ${updatedCount}`;
+    if (ignoredCount > 0) logMsg += `, ignorou ${ignoredCount}`;
+    
+    await logActivity('IMPORT_TEXT_ORDERS', logMsg, 'clients');
+
+    // Trigger text import notification
+    const textImporterName = authState.user ? (authState.user.name || authState.user.email) : 'Funcionário';
+    await createNotification(
+      'Nova ordem importada por texto',
+      `${textImporterName} importou ordens por texto: ${createdCount} criados, ${updatedCount} atualizados.`,
+      'import_completed',
+      'all',
+      'import'
+    );
+
+    showToast(`Importação concluída: ${createdCount} criados, ${updatedCount} atualizados.`);
+    closeTextImportModal();
+    
+    state.clients = await window.db.getAll('clients');
+    state.expenses = authState.user.role === 'admin' ? await window.db.getAll('expenses') : [];
+    
+    await loadViewData('clients');
+    if (typeof updateDashboard === 'function') {
+      updateDashboard();
+    }
+  }
+
+  // Hook up Text Import Modal listeners
+  elements.btnOpenTextImportModal.addEventListener('click', () => {
+    openTextImportModal();
+  });
+
+  elements.btnCloseTextImportModal.addEventListener('click', closeTextImportModal);
+  elements.btnCancelTextImport.addEventListener('click', closeTextImportModal);
+
+  elements.btnAnalyzeTextImport.addEventListener('click', () => {
+    const text = elements.textImportArea.value;
+    if (!text || !text.trim()) {
+      showToast('Por favor, cole alguma ordem para analisar.', 'error');
+      return;
+    }
+    parsedOrdersList = parseOrdersFromText(text);
+    renderTextImportPreview();
+    elements.textImportStage1.style.display = 'none';
+    elements.textImportStage2.style.display = 'block';
+  });
+
+  elements.btnBackTextImport.addEventListener('click', () => {
+    elements.textImportStage2.style.display = 'none';
+    elements.textImportStage1.style.display = 'block';
+  });
+
+  elements.btnConfirmTextImport.addEventListener('click', () => {
+    confirmTextImport();
+  });
+
+  // ==========================================================================
+  // BLACK LIST FEATURE LOGIC
+  // ==========================================================================
+  let editingBlacklistClientId = null;
+
+  function renderBlacklist() {
+    if (!elements.blacklistTableBody) return;
+
+    const tableBody = elements.blacklistTableBody;
+    tableBody.innerHTML = '';
+
+    const searchQuery = elements.searchBlacklistInput.value.toLowerCase().trim();
+    const period = elements.blacklistPeriodFilter.value;
+    const isEmployee = authState.user && authState.user.role === 'funcionario';
+    const seeAll = !isEmployee || state.settings.employeeSeeAllClients;
+
+    // Filter by dates
+    let startDateVal = null;
+    let endDateVal = null;
+
+    if (period === 'custom') {
+      startDateVal = elements.blacklistStartDate.value;
+      endDateVal = elements.blacklistEndDate.value;
+    } else if (period !== 'all') {
+      const startVal = elements.blacklistStartDate ? elements.blacklistStartDate.value : null;
+      const endVal = elements.blacklistEndDate ? elements.blacklistEndDate.value : null;
+      const range = getDateRange(period, startVal, endVal);
+      startDateVal = range.start.toISOString().slice(0, 10);
+      endDateVal = range.end.toISOString().slice(0, 10);
+    }
+
+    // Filter candidates: only status 'Golpe'
+    const blacklisted = state.clients.filter(client => {
+      if (client.status !== 'Golpe') return false;
+
+      // Check ownership restriction for employee
+      if (!seeAll && client.createdById && client.createdById !== authState.user.profileId) {
+        return false;
+      }
+
+      // Check date range
+      const blacklistDateStr = client.blacklistedAt ? client.blacklistedAt.split('T')[0] : client.date;
+      if (startDateVal && blacklistDateStr < startDateVal) return false;
+      if (endDateVal && blacklistDateStr > endDateVal) return false;
+
+      // Check search query
+      const matchesSearch = !searchQuery || 
+        client.name.toLowerCase().includes(searchQuery) ||
+        client.phone.toLowerCase().includes(searchQuery) ||
+        (client.blacklistReason && client.blacklistReason.toLowerCase().includes(searchQuery)) ||
+        (client.observations && client.observations.toLowerCase().includes(searchQuery)) ||
+        client.attendant.toLowerCase().includes(searchQuery);
+
+      return matchesSearch;
+    });
+
+    // 1. Calculate KPI Metrics
+    const totalCount = blacklisted.length;
+    const totalPrejuizo = blacklisted.reduce((sum, c) => sum + (Number(c.saleValue) || 0), 0);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const addedToday = blacklisted.filter(c => {
+      const bDate = c.blacklistedAt ? c.blacklistedAt.split('T')[0] : c.date;
+      return bDate === todayStr;
+    }).length;
+
+    // Product & seller counts
+    const productCounts = {};
+    const sellerCounts = {};
+    blacklisted.forEach(c => {
+      const pName = getClientDisplayProductName(c);
+      productCounts[pName] = (productCounts[pName] || 0) + 1;
+      
+      const sName = c.attendant || 'Desconhecido';
+      sellerCounts[sName] = (sellerCounts[sName] || 0) + 1;
+    });
+
+    let topProduct = 'Nenhum';
+    let maxProdScams = 0;
+    for (const prod in productCounts) {
+      if (productCounts[prod] > maxProdScams) {
+        maxProdScams = productCounts[prod];
+        topProduct = prod;
+      }
+    }
+
+    let topSeller = 'Nenhum';
+    let maxSellerScams = 0;
+    for (const sell in sellerCounts) {
+      if (sellerCounts[sell] > maxSellerScams) {
+        maxSellerScams = sellerCounts[sell];
+        topSeller = sell;
+      }
+    }
+
+    // Update KPI UI
+    elements.kpiBlacklistTotal.textContent = totalCount;
+    elements.kpiBlacklistPrejuizo.textContent = formatCurrency(totalPrejuizo);
+    elements.kpiBlacklistHoje.textContent = addedToday;
+    elements.kpiBlacklistProduto.textContent = topProduct;
+    elements.kpiBlacklistVendedor.textContent = topSeller;
+
+    // 2. Render Table rows
+    if (blacklisted.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="13" class="table-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Nenhum registro encontrado na Black List.</td></tr>`;
+      return;
+    }
+
+    blacklisted.forEach(client => {
+      const prodName = getClientDisplayProductName(client);
+      const orderDate = getClientDisplayDate(client.date);
+      const scamDate = client.blacklistedAt ? formatDateDisplay(client.blacklistedAt.split('T')[0]) : '-';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          <button class="btn btn-secondary btn-sm btn-icon-only btn-edit-blacklist" data-id="${client.id}" title="Ver detalhes / Editar">
+            <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </td>
+        <td style="text-align: center; color: #ef4444; font-size: 1.1rem;">🛑</td>
+        <td style="font-weight: 600;">${escapeHTML(client.name)}</td>
+        <td>${escapeHTML(client.phone)}</td>
+        <td>${escapeHTML(prodName)}</td>
+        <td>${escapeHTML(client.planName || '-')}</td>
+        <td>${formatCurrency(client.saleValue)}</td>
+        <td>${escapeHTML(client.attendant || '-')}</td>
+        <td>${orderDate}</td>
+        <td>${scamDate}</td>
+        <td>${escapeHTML(client.blacklistedByName || '-')}</td>
+        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(client.blacklistReason || '')}">${escapeHTML(client.blacklistReason || '-')}</td>
+        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(client.observations || '')}">${escapeHTML(client.observations || '-')}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+    // Bind edit buttons
+    tableBody.querySelectorAll('.btn-edit-blacklist').forEach(btn => {
+      btn.addEventListener('click', () => openBlacklistModal(btn.getAttribute('data-id')));
+    });
+  }
+
+  function openBlacklistModal(id) {
+    const client = state.clients.find(c => String(c.id) === String(id));
+    if (!client) {
+      showToast('Cliente não encontrado.', 'error');
+      return;
+    }
+
+    editingBlacklistClientId = client.id;
+    elements.blacklistClientId.value = client.id;
+    elements.blacklistClientName.value = client.name;
+    elements.blacklistClientReason.value = client.blacklistReason || '';
+    elements.blacklistClientObservations.value = client.observations || '';
+
+    // Check permissions
+    const isEmployee = authState.user && authState.user.role === 'funcionario';
+    const canEdit = !isEmployee || state.settings.employeeEditClients;
+
+    if (canEdit) {
+      elements.blacklistClientReason.readOnly = false;
+      elements.blacklistClientReason.style.backgroundColor = '';
+      elements.blacklistClientObservations.readOnly = false;
+      elements.blacklistClientObservations.style.backgroundColor = '';
+      elements.btnRestoreBlacklistClient.style.display = 'flex';
+      elements.blacklistForm.querySelector('button[type="submit"]').style.display = 'inline-block';
+    } else {
+      elements.blacklistClientReason.readOnly = true;
+      elements.blacklistClientReason.style.backgroundColor = 'var(--bg-secondary)';
+      elements.blacklistClientObservations.readOnly = true;
+      elements.blacklistClientObservations.style.backgroundColor = 'var(--bg-secondary)';
+      elements.btnRestoreBlacklistClient.style.display = 'none';
+      elements.blacklistForm.querySelector('button[type="submit"]').style.display = 'none';
+    }
+
+    elements.blacklistModal.classList.add('active');
+  }
+
+  function closeBlacklistModal() {
+    elements.blacklistModal.classList.remove('active');
+    editingBlacklistClientId = null;
+  }
+
+  // Blacklist filters & modal event listeners
+  if (elements.searchBlacklistInput) {
+    elements.searchBlacklistInput.addEventListener('input', renderBlacklist);
+  }
+  if (elements.blacklistPeriodFilter) {
+    elements.blacklistPeriodFilter.addEventListener('change', (e) => {
+      if (e.target.value === 'custom') {
+        elements.blacklistCustomDateRangeWrapper.style.display = 'flex';
+      } else {
+        elements.blacklistCustomDateRangeWrapper.style.display = 'none';
+      }
+      renderBlacklist();
+    });
+  }
+  if (elements.blacklistStartDate) {
+    elements.blacklistStartDate.addEventListener('change', renderBlacklist);
+  }
+  if (elements.blacklistEndDate) {
+    elements.blacklistEndDate.addEventListener('change', renderBlacklist);
+  }
+  if (elements.btnCloseBlacklistModal) {
+    elements.btnCloseBlacklistModal.addEventListener('click', closeBlacklistModal);
+  }
+  if (elements.btnCancelBlacklistModal) {
+    elements.btnCancelBlacklistModal.addEventListener('click', closeBlacklistModal);
+  }
+
+  if (elements.blacklistForm) {
+    elements.blacklistForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!editingBlacklistClientId) return;
+
+      try {
+        const client = state.clients.find(c => String(c.id) === String(editingBlacklistClientId));
+        if (!client) {
+          showToast('Cliente não encontrado.', 'error');
+          return;
+        }
+
+        client.blacklistReason = elements.blacklistClientReason.value.trim();
+        client.observations = elements.blacklistClientObservations.value.trim();
+
+        await window.db.put('clients', client);
+        showToast('Registro da Black List atualizado com sucesso!');
+        await logActivity('EDIT_CLIENT_BLACKLIST', `Editou informações da Black List do cliente ${client.name}`, 'clients', client.id, client.name);
+
+        closeBlacklistModal();
+        await loadViewData('blacklist');
+        renderBlacklist();
+      } catch (err) {
+        showToast('Erro ao atualizar registro.', 'error');
+        console.error(err);
+      }
+    });
+  }
+
+  if (elements.btnRestoreBlacklistClient) {
+    elements.btnRestoreBlacklistClient.addEventListener('click', async () => {
+      if (!editingBlacklistClientId) return;
+
+      if (confirm('Tem certeza que deseja remover este cliente da Black List e voltar para Clientes?')) {
+        try {
+          const client = state.clients.find(c => String(c.id) === String(editingBlacklistClientId));
+          if (!client) {
+            showToast('Cliente não encontrado.', 'error');
+            return;
+          }
+
+          client.status = 'Pagamento pendente';
+          client.blacklistedAt = null;
+          client.blacklistedById = null;
+          client.blacklistedByName = null;
+          client.blacklistReason = '';
+
+          await window.db.put('clients', client);
+          await syncAutoExpenseForClient(client, 'manual');
+          showToast('Cliente restaurado com sucesso!');
+          await logActivity('RESTORE_CLIENT_BLACKLIST', `Restaurou o cliente ${client.name} da Black List`, 'clients', client.id, client.name);
+
+          // Trigger blacklist restore notification
+          const userName = authState.user ? (authState.user.name || authState.user.email) : 'Usuário';
+          await createNotification('Cliente restaurado da Black List', `Cliente ${client.name} foi retirado da Black List por ${userName}.`, 'client_restored', 'all', 'client', client.id);
+
+          closeBlacklistModal();
+          await loadViewData('blacklist');
+          renderBlacklist();
+        } catch (err) {
+          showToast('Erro ao restaurar cliente.', 'error');
+          console.error(err);
+        }
+      }
+    });
+  }
+
   elements.btnCloseImportModal.addEventListener('click', closeImportModal);
   elements.btnCancelImport.addEventListener('click', closeImportModal);
 
@@ -2876,7 +4436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const combinedStatusText = normalizeImportText(`${paidStr} ${deliveryStr} ${deliveredStr} ${obsStr} ${wholeRowText}`);
 
       const isPaid = parsePaymentFlag(paidStatus);
-      const isScam = ['golpe', 'scam', 'fraude', 'devolvido', 'devolucao', 'cliente fez devolucao', 'prejuizo'].some(term => combinedStatusText.includes(term));
+      const isScam = ['golpe', 'scam', 'fraude', 'devolvido', 'devolucao', 'cliente fez devolucao', 'prejuizo', 'cliente nao pagou', 'recusou', 'returned'].some(term => combinedStatusText.includes(term));
 
       if (isScam) {
         status = 'Golpe';
@@ -3163,6 +4723,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         client.creationSource = 'spreadsheet';
 
+        if (client.status === 'Golpe') {
+          client.blacklistedAt = new Date().toISOString();
+          client.blacklistedById = authState.user ? (authState.user.profileId || authState.user.id || null) : null;
+          client.blacklistedByName = authState.user ? (authState.user.name || authState.user.email || '') : 'Sistema';
+          client.blacklistReason = 'Importado via planilha com status Golpe';
+        }
+
         if (client._isDuplicate) {
           if (action === 'ignore') {
             continue; // Skip
@@ -3250,8 +4817,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
       await logActivity('IMPORT_CLIENTS', `Importou ${importedCount} clientes via planilha "${importState.fileName || ''}"`, 'spreadsheet_imports', null, importState.fileName || 'Planilha importada');
+      
+      // Trigger spreadsheet import notifications
+      const importerName = authState.user ? (authState.user.name || authState.user.email) : 'Funcionário';
+      await createNotification(
+        'Nova planilha importada',
+        `${importerName} importou a planilha "${importState.fileName || ''}": ${importedCount} novos, ${paidCount} pagos, ${pendingCount} pendentes, ${scamCount} golpes.`,
+        'import_completed',
+        'all',
+        'import'
+      );
+
       if (errorCount > 0) {
         await logActivity('IMPORT_ERROR', `Importação "${importState.fileName || ''}" finalizada com ${errorCount} erro(s): ${firstErrorMessage || 'ver console'}`, 'spreadsheet_imports', null, importState.fileName || 'Planilha importada');
+        await createNotification(
+          'Erro ao importar planilha',
+          `Importação da planilha "${importState.fileName || ''}" teve ${errorCount} erros. Erro: ${firstErrorMessage || 'detalhes no console'}.`,
+          'import_error',
+          'all',
+          'import'
+        );
       }
     } catch (err) {
       console.error('Error logging import summary:', err);
@@ -3816,9 +5401,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         expenseData.id = state.editingExpenseId;
         await window.db.put('expenses', expenseData);
         showToast('Despesa atualizada com sucesso!');
+        await createNotification('Despesa editada', `A despesa "${expenseData.name}" foi atualizada no valor de $${expenseData.value.toFixed(2)}.`, 'expense_created', 'admin', 'expense', state.editingExpenseId);
       } else {
-        await window.db.add('expenses', expenseData);
+        const newId = await window.db.add('expenses', expenseData);
         showToast('Despesa cadastrada com sucesso!');
+        await createNotification('Nova despesa criada', `Despesa "${expenseData.name}" no valor de $${expenseData.value.toFixed(2)} foi cadastrada.`, 'expense_created', 'admin', 'expense', newId);
+        
+        // High expense warning
+        if (expenseData.value > 300) {
+          await createNotification('Gasto alto no dia', `Alerta de gasto elevado: Despesa "${expenseData.name}" de $${expenseData.value.toFixed(2)} registrada.`, 'loss_registered', 'admin', 'expense', newId);
+        }
       }
       closeExpenseModal();
       loadViewData('expenses');
@@ -4309,7 +5901,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       state.productCostRules = await window.db.getAll('product_cost_rules');
     }
 
-    // 3. Render default view
+    // 3. Load notifications
+    await loadNotifications();
+    await checkDailyReportNotification();
+
+    // 4. Start notification background poll every 2 minutes
+    if (window.notificationPollInterval) {
+      clearInterval(window.notificationPollInterval);
+    }
+    window.notificationPollInterval = setInterval(async () => {
+      if (authState.user) {
+        await loadNotifications();
+      }
+    }, 120000);
+
+    // 5. Render default view
     navigateTo('dashboard');
   }
 
@@ -4415,7 +6021,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const importCount = state.clients.filter(c => {
         if (!c.date) return false;
         const cDate = c.date.split('T')[0];
-        return String(c.createdById) === String(profile.id) && c.creationSource === 'spreadsheet' && cDate === todayStr;
+        return String(c.createdById) === String(profile.id) && ['spreadsheet', 'text_import'].includes(c.creationSource) && cDate === todayStr;
       }).length;
 
       const statusBadge = profile.status === 'active' ? 'badge-success' : 'badge-danger';
@@ -4798,7 +6404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const importedToday = employeeClients.filter(c => {
       if (!c.date) return false;
       const cDate = c.date.split('T')[0];
-      return cDate === todayStr && c.creationSource === 'spreadsheet';
+      return cDate === todayStr && ['spreadsheet', 'text_import'].includes(c.creationSource);
     }).length;
 
     document.getElementById('empKpiAddedTodayVal').textContent = addedToday;
@@ -4848,7 +6454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               <td>${getClientDisplayDate(client.date)}</td>
               <td><strong>${escapeHTML(client.name)}</strong></td>
               <td><span class="badge ${statusBadge}">${escapeHTML(client.status)}</span></td>
-              <td>${client.creationSource === 'spreadsheet' ? 'Planilha' : 'Manual'}</td>
+              <td>${getClientCreationSourceLabel(client.creationSource)}</td>
             </tr>
           `;
         }).join('');
